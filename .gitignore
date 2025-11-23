@@ -1,0 +1,28 @@
+# Build outputs
+target/
+output/
+*.jar
+*.class
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+dependency-reduced-pom.xml
+
+# Logs
+*.log
+LOG/
+
+# OS
+.DS_Store
+Thumbs.db
+
