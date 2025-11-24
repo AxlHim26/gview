@@ -2,16 +2,17 @@ package com.p2pclient.network;
 
 import com.p2pclient.model.P2PMessage;
 import com.p2pclient.remote.ScreenCapture;
+import com.p2pclient.remote.ScreenQualityProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Properties;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -115,43 +116,54 @@ public class P2PServer {
     private void startScreenCaptureLoop(PeerConnectionHandler handler) {
         executorService.submit(() -> {
             try {
-                Properties props = new Properties();
-                try (InputStream is = getClass().getClassLoader()
-                        .getResourceAsStream("config.properties")) {
-                    if (is != null) {
-                        props.load(is);
-                    }
-                }
-                int fps = Integer.parseInt(props.getProperty("screen.capture.fps", "10"));
-                long delay = 1000 / fps; // milliseconds per frame
+                ScreenQualityProfile profile = screenCapture.getProfile();
+                logger.info("Screen capture loop started with profile {}", profile);
+                Deque<Integer> frameWindow = new ArrayDeque<>();
+                long windowSum = 0;
+                final int windowSize = 20;
+                double maxBytesPerSec = profile.getTargetBitrateBitsPerSec() / 8.0;
                 
-                logger.info("Screen capture loop started: {} FPS ({}ms delay)", fps, delay);
                 int frameCount = 0;
                 
                 while (running.get() && handler.isRunning() && !connections.isEmpty()) {
                     try {
                         long startTime = System.currentTimeMillis();
+                        long frameIntervalMillis = Math.max(1L, Math.round(1000.0 / Math.max(1, profile.getTargetFps())));
                         byte[] screenData = screenCapture.captureScreenAsBytes();
                         if (screenData != null) {
                             P2PMessage message = new P2PMessage(P2PMessage.TYPE_SCREEN, screenData);
                             handler.sendMessage(message);
                             
                             frameCount++;
+                            frameWindow.addLast(screenData.length);
+                            windowSum += screenData.length;
+                            if (frameWindow.size() > windowSize) {
+                                windowSum -= frameWindow.removeFirst();
+                            }
+                            double avgFrameBytes = frameWindow.isEmpty()
+                                ? screenData.length
+                                : (double) windowSum / frameWindow.size();
+                            double fpsMax = maxBytesPerSec / Math.max(1.0, avgFrameBytes);
+                            double targetFps = Math.min(profile.getTargetFps(), fpsMax);
+                            targetFps = Math.max(1.0, targetFps);
+                            frameIntervalMillis = Math.max(1L, (long) (1000.0 / targetFps));
+                            
                             if (frameCount % 30 == 0) { // Log every 30 frames (3 seconds at 10 FPS)
-                                logger.info("Sent {} frames. Last frame: {} bytes to {} peer(s)", 
-                                    frameCount, screenData.length, connections.size());
+                                logger.info("Sent {} frames. Last frame: {} bytes to {} peer(s) | avgFrameBytes={} | targetFps≈{}",
+                                    frameCount, screenData.length, connections.size(), 
+                                    Math.round(avgFrameBytes), String.format("%.1f", targetFps));
                             } else {
                                 logger.debug("Sent screen frame {}: {} bytes", frameCount, screenData.length);
                             }
+                            
+                            long elapsed = System.currentTimeMillis() - startTime;
+                            long sleepTime = frameIntervalMillis - elapsed;
+                            if (sleepTime > 0) {
+                                Thread.sleep(sleepTime);
+                            }
                         } else {
                             logger.warn("Screen capture returned null data");
-                        }
-                        
-                        // Maintain FPS
-                        long elapsed = System.currentTimeMillis() - startTime;
-                        long sleepTime = delay - elapsed;
-                        if (sleepTime > 0) {
-                            Thread.sleep(sleepTime);
+                            Thread.sleep(frameIntervalMillis);
                         }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();

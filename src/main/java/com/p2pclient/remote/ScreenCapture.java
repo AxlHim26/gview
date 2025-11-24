@@ -12,35 +12,25 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Iterator;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ScreenCapture {
     private static final Logger logger = LoggerFactory.getLogger(ScreenCapture.class);
-    private static final String CONFIG_FILE = "config.properties";
     private static final float MIN_QUALITY = 0.05f;
     private static final float MAX_QUALITY = 1.0f;
     private static final AtomicInteger CAPTURE_COUNTER = new AtomicInteger();
     
     private final Robot robot;
     private final Rectangle screenRect;
-    private final int maxWidth;
-    private final int maxHeight;
-    private final float defaultQuality;
+    private final ScreenQualityProfile profile;
 
-    public ScreenCapture() throws AWTException {
+    public ScreenCapture(ScreenQualityProfile profile) throws AWTException {
+        this.profile = profile == null ? ScreenQualityProfile.defaultProfile() : profile;
         this.robot = new Robot();
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         this.screenRect = new Rectangle(screenSize);
-
-        Properties props = loadConfig();
-        this.maxWidth = parseInt(props.getProperty("screen.capture.maxWidth"), 1024);
-        this.maxHeight = parseInt(props.getProperty("screen.capture.maxHeight"), 576);
-        this.defaultQuality = clampQuality(parseFloat(props.getProperty("screen.capture.quality"), 0.25f));
-
-        logger.info("ScreenCapture initialized with max {}x{}, quality {}", maxWidth, maxHeight, defaultQuality);
+        logger.info("ScreenCapture initialized with profile {}", this.profile);
     }
 
     /**
@@ -70,14 +60,17 @@ public class ScreenCapture {
     }
 
     /**
-     * Capture screen optimized for relay mode (improved quality for better readability)
-     * This produces frames typically 50-80KB JPEG, base64Len ~65-110k, well within 512KB STOMP limits
-     * Quality increased to 0.55 for sharper text and less blocky UI
+     * Capture screen optimized for relay mode using the active quality profile unless overridden.
      */
     public byte[] captureScreenForRelay() {
-        // Use 960x540 (16:9) with quality 0.55 for improved visual quality
-        // Resolution kept at 960x540 as safe first step; can increase later if needed
-        return captureScreenAsBytesInternal(0.55f, 960, 540);
+        return captureScreenForRelay(null);
+    }
+
+    public byte[] captureScreenForRelay(ScreenQualityProfile relayProfile) {
+        ScreenQualityProfile effective = relayProfile != null ? relayProfile : this.profile;
+        // Use profile quality directly - profiles are already tuned for relay use
+        // No quality bump needed as profiles are designed for WAN constraints
+        return captureScreenAsBytesInternal(effective.getJpegQuality(), effective.getMaxWidth(), effective.getMaxHeight());
     }
 
     private byte[] captureScreenAsBytesInternal(Float overrideQuality) {
@@ -96,8 +89,8 @@ public class ScreenCapture {
             int srcHeight = screenCapture.getHeight();
 
             // Use override dimensions if provided, otherwise use configured defaults
-            int effectiveMaxWidth = overrideMaxWidth != null ? overrideMaxWidth : this.maxWidth;
-            int effectiveMaxHeight = overrideMaxHeight != null ? overrideMaxHeight : this.maxHeight;
+            int effectiveMaxWidth = overrideMaxWidth != null ? overrideMaxWidth : profile.getMaxWidth();
+            int effectiveMaxHeight = overrideMaxHeight != null ? overrideMaxHeight : profile.getMaxHeight();
 
             double scale = calculateScale(srcWidth, srcHeight, effectiveMaxWidth, effectiveMaxHeight);
             BufferedImage processedImage = screenCapture;
@@ -121,7 +114,7 @@ public class ScreenCapture {
                 g2d.dispose();
             }
 
-            float quality = overrideQuality != null ? clampQuality(overrideQuality) : defaultQuality;
+            float quality = overrideQuality != null ? clampQuality(overrideQuality) : profile.getJpegQuality();
             byte[] jpegBytes = encodeJpeg(processedImage, quality);
             if (jpegBytes == null) {
                 return null;
@@ -162,7 +155,7 @@ public class ScreenCapture {
     }
 
     private double calculateScale(int width, int height) {
-        return calculateScale(width, height, this.maxWidth, this.maxHeight);
+        return calculateScale(width, height, profile.getMaxWidth(), profile.getMaxHeight());
     }
 
     private double calculateScale(int width, int height, int maxW, int maxH) {
@@ -194,36 +187,6 @@ public class ScreenCapture {
         }
     }
 
-    private Properties loadConfig() {
-        Properties props = new Properties();
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(CONFIG_FILE)) {
-            if (is != null) {
-                props.load(is);
-            } else {
-                logger.warn("Config file {} not found; using defaults", CONFIG_FILE);
-            }
-        } catch (IOException e) {
-            logger.warn("Failed to load config {}, using defaults", CONFIG_FILE, e);
-        }
-        return props;
-    }
-
-    private int parseInt(String value, int defaultValue) {
-        try {
-            return Integer.parseInt(value);
-        } catch (Exception e) {
-            return defaultValue;
-        }
-    }
-
-    private float parseFloat(String value, float defaultValue) {
-        try {
-            return Float.parseFloat(value);
-        } catch (Exception e) {
-            return defaultValue;
-        }
-    }
-
     private float clampQuality(float quality) {
         return Math.max(MIN_QUALITY, Math.min(MAX_QUALITY, quality));
     }
@@ -234,6 +197,10 @@ public class ScreenCapture {
 
     public Rectangle getScreenRect() {
         return screenRect;
+    }
+
+    public ScreenQualityProfile getProfile() {
+        return profile;
     }
 }
 

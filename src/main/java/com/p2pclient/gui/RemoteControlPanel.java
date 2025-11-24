@@ -24,6 +24,11 @@ public class RemoteControlPanel extends JPanel {
     private int remoteImageWidth;  // Actual image dimensions for coordinate normalization
     private int remoteImageHeight;
     private boolean isController; // true if controlling remote screen
+    
+    // FPS measurement
+    private long renderFpsWindowStart = System.currentTimeMillis();
+    private int renderFramesInWindow = 0;
+    private long lastRenderFpsLog = System.currentTimeMillis();
 
     public interface RemoteControlListener {
         void onMouseEvent(P2PMessage message);
@@ -95,7 +100,7 @@ public class RemoteControlPanel extends JPanel {
                 remoteScreenSize = new Dimension(newImage.getWidth(), newImage.getHeight());
                 remoteImageWidth = newImage.getWidth();
                 remoteImageHeight = newImage.getHeight();
-                logger.info("updateRemoteScreen: rendering {}x{} (previous image null? {})",
+                logger.debug("updateRemoteScreen: rendering {}x{} (previous image null? {})",
                     newImage.getWidth(), newImage.getHeight(), previousWasNull);
                 
                 // Update input forwarder with actual image dimensions for coordinate normalization
@@ -103,6 +108,26 @@ public class RemoteControlPanel extends JPanel {
                     SwingUtilities.invokeLater(() -> {
                         inputForwarder.updateRemoteImageSize(remoteImageWidth, remoteImageHeight);
                     });
+                }
+                
+                // FPS measurement - only count when we have a valid image
+                long now = System.currentTimeMillis();
+                renderFramesInWindow++;
+                
+                // Log FPS every 2 seconds
+                if (now - lastRenderFpsLog >= 2000) {
+                    long windowDuration = now - renderFpsWindowStart;
+                    if (windowDuration > 0 && renderFramesInWindow > 0) {
+                        double fps = renderFramesInWindow * 1000.0 / windowDuration;
+                        logger.info("Rendered FPS ≈ {}", String.format("%.1f", fps));
+                    } else {
+                        logger.debug("Rendered FPS: no frames in window (duration={}ms, count={})", 
+                            windowDuration, renderFramesInWindow);
+                    }
+                    // Reset window
+                    renderFpsWindowStart = now;
+                    renderFramesInWindow = 0;
+                    lastRenderFpsLog = now;
                 }
             } else {
                 remoteImageWidth = 0;
@@ -393,6 +418,10 @@ public class RemoteControlPanel extends JPanel {
             remoteScreenSize = null;
             remoteImageWidth = 0;
             remoteImageHeight = 0;
+            // Reset FPS counters
+            renderFpsWindowStart = System.currentTimeMillis();
+            renderFramesInWindow = 0;
+            lastRenderFpsLog = System.currentTimeMillis();
         }
         SwingUtilities.invokeLater(() -> {
             repaint();

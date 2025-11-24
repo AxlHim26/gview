@@ -1,6 +1,7 @@
 com\p2pclient\P2PClientApp$4.class
 com\p2pclient\network\IdServerClient$MyStompSessionHandler.class
 com\p2pclient\remote\ScreenReceiver$ScreenUpdateListener.class
+com\p2pclient\P2PClientApp$AdaptiveAverager.class
 com\p2pclient\gui\RemoteControlPanel$3.class
 com\p2pclient\network\P2PServer.class
 com\p2pclient\network\IdServerClient$LookupResponse.class
@@ -20,6 +21,7 @@ com\p2pclient\remote\InputForwarder.class
 view\chat\app\PeerChatApp.class
 com\p2pclient\gui\RemoteControlPanel$RemoteControlListener.class
 com\p2pclient\gui\MainFrame$1.class
+com\p2pclient\remote\ScreenQualityProfile.class
 com\p2pclient\network\P2PClient.class
 com\p2pclient\gui\RemoteControlPanel$1.class
 com\p2pclient\P2PClientApp$2.class

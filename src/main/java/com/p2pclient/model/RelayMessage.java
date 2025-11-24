@@ -23,6 +23,12 @@ public class RelayMessage {
     @JsonProperty("timestamp")
     private long timestamp;
 
+    @JsonProperty("frameSeq")
+    private long frameSeq;
+
+    @JsonProperty("sendTimestampMs")
+    private long sendTimestampMs;
+
     public RelayMessage() {
     }
 
@@ -72,6 +78,22 @@ public class RelayMessage {
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public long getFrameSeq() {
+        return frameSeq;
+    }
+
+    public void setFrameSeq(long frameSeq) {
+        this.frameSeq = frameSeq;
+    }
+
+    public long getSendTimestampMs() {
+        return sendTimestampMs;
+    }
+
+    public void setSendTimestampMs(long sendTimestampMs) {
+        this.sendTimestampMs = sendTimestampMs;
     }
 }
 

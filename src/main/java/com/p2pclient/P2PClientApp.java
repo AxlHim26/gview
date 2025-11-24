@@ -9,6 +9,7 @@ import com.p2pclient.network.IdServerClient;
 import com.p2pclient.network.P2PClient;
 import com.p2pclient.network.P2PServer;
 import com.p2pclient.remote.ScreenCapture;
+import com.p2pclient.remote.ScreenQualityProfile;
 import com.p2pclient.util.NetworkUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAccumulator;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public class P2PClientApp {
     private static final Logger logger = LoggerFactory.getLogger(P2PClientApp.class);
@@ -46,6 +52,15 @@ public class P2PClientApp {
     private Thread relayScreenThread;
     private final ObjectMapper relayMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, ScheduledExecutorService> relayMonitors = new ConcurrentHashMap<>();
+    private final AtomicLong relayFrameSequence = new AtomicLong();
+    private final AtomicLong lastRenderedRelayFrame = new AtomicLong();
+    private final BlockingQueue<RelayMessage> relayFrameQueue = new LinkedBlockingDeque<>(1);
+    private final LongAdder relayLatencySum = new LongAdder();
+    private final LongAdder relayLatencyCount = new LongAdder();
+    private final LongAccumulator relayLatencyMax = new LongAccumulator(Long::max, Long.MIN_VALUE);
+    private final LongAccumulator relayLatencyMin = new LongAccumulator(Long::min, Long.MAX_VALUE);
+    private final AtomicLong lastRelayLatencyLog = new AtomicLong();
+    private Thread relayFrameWorker;
     
     private String myPeerId;
     private String myPassword;
@@ -54,11 +69,19 @@ public class P2PClientApp {
     
     private boolean isController = false; // true if we initiated the connection
     private final ExecutorService executorService;
+    private volatile ScreenQualityProfile qualityProfile; // Can be changed via GUI
 
     public P2PClientApp() {
+        this(null);
+    }
+
+    public P2PClientApp(ScreenQualityProfile profile) {
+        this.qualityProfile = profile == null ? ScreenQualityProfile.defaultProfile() : profile;
+        logger.info("Starting client with screen quality profile {}", this.qualityProfile);
         executorService = Executors.newCachedThreadPool();
         initializeGUI();
         initializeIdServerClient();
+        startRelayFrameWorker();
     }
 
     private void initializeGUI() {
@@ -108,19 +131,17 @@ public class P2PClientApp {
                         isController = false; // We are being controlled
                         
                         // Enable screen capture for controlled peer
-                        if (screenCapture == null) {
-                            try {
-                                screenCapture = new ScreenCapture();
-                                logger.info("ScreenCapture initialized for controlled peer");
-                            } catch (AWTException e) {
-                                logger.error("Failed to create screen capture", e);
-                                SwingUtilities.invokeLater(() -> {
-                                    JOptionPane.showMessageDialog(mainFrame,
-                                        "Failed to initialize screen capture",
-                                        "Error", JOptionPane.ERROR_MESSAGE);
-                                });
-                                return;
-                            }
+                        try {
+                            initializeScreenCapture();
+                            logger.info("ScreenCapture initialized for controlled peer");
+                        } catch (AWTException e) {
+                            logger.error("Failed to create screen capture", e);
+                            SwingUtilities.invokeLater(() -> {
+                                JOptionPane.showMessageDialog(mainFrame,
+                                    "Failed to initialize screen capture",
+                                    "Error", JOptionPane.ERROR_MESSAGE);
+                            });
+                            return;
                         }
                         p2pServer.setScreenCapture(screenCapture);
                         p2pServer.setController(false); // We are controlled, so we send screen
@@ -167,6 +188,33 @@ public class P2PClientApp {
         });
     }
 
+    private synchronized void initializeScreenCapture() throws AWTException {
+        if (screenCapture == null) {
+            screenCapture = new ScreenCapture(qualityProfile);
+            logger.info("ScreenCapture initialized with profile {}", qualityProfile);
+        }
+    }
+
+    private void startRelayFrameWorker() {
+        relayFrameWorker = new Thread(this::drainRelayFrames, "RelayFrameWorker");
+        relayFrameWorker.setDaemon(true);
+        relayFrameWorker.start();
+    }
+
+    private void drainRelayFrames() {
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                RelayMessage frame = relayFrameQueue.take();
+                processRelayFrame(frame);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                logger.error("Relay frame worker error", e);
+            }
+        }
+        logger.info("Relay frame worker stopped");
+    }
+
     private void setupLoginPanel() {
         LoginPanel loginPanel = mainFrame.getLoginPanel();
         loginPanel.setListener(new LoginPanel.LoginListener() {
@@ -190,21 +238,19 @@ public class P2PClientApp {
                         
                         // CRITICAL: Initialize screen capture BEFORE starting P2P server
                         // This is needed for when we become controlled peer
-                        if (screenCapture == null) {
-                            try {
-                                screenCapture = new ScreenCapture();
-                                logger.info("ScreenCapture initialized during registration");
-                            } catch (AWTException e) {
-                                logger.error("Failed to create ScreenCapture", e);
-                                SwingUtilities.invokeLater(() -> {
-                                    loginPanel.setError("Failed to initialize screen capture: " + e.getMessage());
-                                    loginPanel.setButtonsEnabled(true);
-                                    JOptionPane.showMessageDialog(mainFrame,
-                                        "Failed to initialize screen capture",
-                                        "Error", JOptionPane.ERROR_MESSAGE);
-                                });
-                                return;
-                            }
+                        try {
+                            initializeScreenCapture();
+                            logger.info("ScreenCapture initialized during registration");
+                        } catch (AWTException e) {
+                            logger.error("Failed to create ScreenCapture", e);
+                            SwingUtilities.invokeLater(() -> {
+                                loginPanel.setError("Failed to initialize screen capture: " + e.getMessage());
+                                loginPanel.setButtonsEnabled(true);
+                                JOptionPane.showMessageDialog(mainFrame,
+                                    "Failed to initialize screen capture",
+                                    "Error", JOptionPane.ERROR_MESSAGE);
+                            });
+                            return;
                         }
                         
                         // Start P2P server
@@ -265,21 +311,19 @@ public class P2PClientApp {
                         myIpAddress = NetworkUtils.getLocalIPAddress();
                         
                         // CRITICAL: Initialize screen capture BEFORE starting P2P server
-                        if (screenCapture == null) {
-                            try {
-                                screenCapture = new ScreenCapture();
-                                logger.info("ScreenCapture initialized during connect");
-                            } catch (AWTException e) {
-                                logger.error("Failed to create ScreenCapture", e);
-                                SwingUtilities.invokeLater(() -> {
-                                    loginPanel.setError("Failed to initialize screen capture: " + e.getMessage());
-                                    loginPanel.setButtonsEnabled(true);
-                                    JOptionPane.showMessageDialog(mainFrame,
-                                        "Failed to initialize screen capture",
-                                        "Error", JOptionPane.ERROR_MESSAGE);
-                                });
-                                return;
-                            }
+                        try {
+                            initializeScreenCapture();
+                            logger.info("ScreenCapture initialized during connect");
+                        } catch (AWTException e) {
+                            logger.error("Failed to create ScreenCapture", e);
+                            SwingUtilities.invokeLater(() -> {
+                                loginPanel.setError("Failed to initialize screen capture: " + e.getMessage());
+                                loginPanel.setButtonsEnabled(true);
+                                JOptionPane.showMessageDialog(mainFrame,
+                                    "Failed to initialize screen capture",
+                                    "Error", JOptionPane.ERROR_MESSAGE);
+                            });
+                            return;
                         }
                         
                         // Start P2P server
@@ -396,6 +440,45 @@ public class P2PClientApp {
                     mainFrame.showDashboardPanel();
                 });
             }
+
+            @Override
+            public void onQualityProfileChanged(String profileName) {
+                try {
+                    ScreenQualityProfile newProfile = ScreenQualityProfile.fromCliArg(profileName);
+                    ScreenQualityProfile oldProfile = qualityProfile;
+                    if (newProfile != oldProfile) {
+                        qualityProfile = newProfile; // Update global profile
+                        logger.info("Quality profile changed via GUI: {} -> {}", oldProfile, newProfile);
+                        
+                        // Update active RelayScreenSender if running
+                        if (relayScreenSender != null) {
+                            relayScreenSender.updateProfile(newProfile);
+                            logger.info("Updated active RelayScreenSender to profile {}", newProfile);
+                        }
+                        
+                        // Recreate ScreenCapture with new profile if it exists
+                        if (screenCapture != null) {
+                            try {
+                                screenCapture = new ScreenCapture(newProfile);
+                                logger.info("Recreated ScreenCapture with profile {}", newProfile);
+                            } catch (AWTException e) {
+                                logger.error("Failed to recreate ScreenCapture", e);
+                            }
+                        }
+                        
+                        SwingUtilities.invokeLater(() -> {
+                            dashboardPanel.addLog("Screen quality set to: " + newProfile.name() + 
+                                " (" + newProfile.getMaxWidth() + "x" + newProfile.getMaxHeight() + 
+                                ", " + newProfile.getTargetFps() + " FPS target)");
+                        });
+                    }
+                } catch (Exception e) {
+                    logger.error("Failed to change quality profile", e);
+                    SwingUtilities.invokeLater(() -> {
+                        dashboardPanel.addLog("Failed to change quality profile: " + e.getMessage());
+                    });
+                }
+            }
         });
     }
 
@@ -445,6 +528,7 @@ public class P2PClientApp {
         }
         
         p2pServer = new P2PServer(myP2PPort);
+        logger.info("P2P Server configured with screen quality profile {}", qualityProfile);
         
         // CRITICAL: Set screen capture so controlled peer can send screen
         if (screenCapture != null) {
@@ -696,39 +780,14 @@ public class P2PClientApp {
             switch (message.getDataType()) {
                 case "SCREEN": {
                     int base64Length = message.getBase64Data() != null ? message.getBase64Data().length() : -1;
-                    logger.info("SCREEN message received - base64Length={}", base64Length);
-                    logger.info("SCREEN message received - processing relay screen");
-                    
-                    if (message.getBase64Data() == null || message.getBase64Data().isEmpty()) {
-                        logger.error("Received SCREEN message with empty base64Data");
-                        return;
-                    }
-                    
-                    try {
-                        logger.info("SCREEN: start decode, base64Len={}", message.getBase64Data().length());
-                        byte[] imageBytes = Base64.getDecoder().decode(message.getBase64Data());
-                        logger.info("SCREEN: decoded bytes length={}", imageBytes.length);
-                        
-                        BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
-                        if (image != null) {
-                            logger.info("SCREEN: image decoded {}x{}", image.getWidth(), image.getHeight());
-                            SwingUtilities.invokeLater(() -> {
-                                logger.info("SCREEN: updating RemoteControlPanel with {}x{}", image.getWidth(), image.getHeight());
-                                mainFrame.getRemoteControlPanel().updateRemoteScreen(image);
-                            });
-                        } else {
-                            logger.warn("Decoded screen image is null");
-                        }
-                    } catch (IllegalArgumentException e) {
-                        logger.error("Base64 decode error for screen data (length={}): {}", 
-                            base64Length, e.getMessage(), e);
-                    } catch (IOException e) {
-                        logger.error("Screen image decoding failed (length={}): {}", 
-                            base64Length, e.getMessage(), e);
-                    } catch (Exception e) {
-                        logger.error("Unexpected error processing SCREEN message (length={}): {}", 
-                            base64Length, e.getMessage(), e);
-                    }
+                    long latencyHint = message.getSendTimestampMs() > 0
+                        ? System.currentTimeMillis() - message.getSendTimestampMs()
+                        : -1L;
+                    logger.debug("SCREEN relay message received: frameSeq={}, base64Len={}, latencyHint={}ms",
+                        message.getFrameSeq(),
+                        base64Length,
+                        latencyHint >= 0 ? latencyHint : -1);
+                    enqueueRelayFrame(message);
                     break;
                 }
                 case "MOUSE":
@@ -778,6 +837,54 @@ public class P2PClientApp {
         }
     }
 
+    private void processRelayFrame(RelayMessage message) {
+        if (message == null || message.getBase64Data() == null) {
+            return;
+        }
+        long seq = message.getFrameSeq();
+        long lastSeq = lastRenderedRelayFrame.get();
+        if (seq > 0 && seq <= lastSeq) {
+            logger.debug("Skipping stale relay frame {} (lastRendered={})", seq, lastSeq);
+            return;
+        }
+
+        try {
+            byte[] imageBytes = Base64.getDecoder().decode(message.getBase64Data());
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            if (image == null) {
+                logger.warn("Decoded relay frame {} produced null image", seq);
+                return;
+            }
+
+            if (seq > 0) {
+                lastRenderedRelayFrame.set(seq);
+            }
+
+            long latency = message.getSendTimestampMs() > 0
+                ? System.currentTimeMillis() - message.getSendTimestampMs()
+                : -1L;
+            recordRelayLatency(latency);
+
+            SwingUtilities.invokeLater(() ->
+                mainFrame.getRemoteControlPanel().updateRemoteScreen(image)
+            );
+        } catch (Exception e) {
+            logger.error("Failed to process relay frame {}", seq, e);
+        }
+    }
+
+    private void enqueueRelayFrame(RelayMessage message) {
+        if (message == null || message.getBase64Data() == null || message.getBase64Data().isEmpty()) {
+            logger.warn("Skipping relay frame with empty payload");
+            return;
+        }
+        if (!relayFrameQueue.offer(message)) {
+            relayFrameQueue.poll();
+            relayFrameQueue.offer(message);
+            logger.debug("Dropped oldest relay frame to keep queue fresh (seq={})", message.getFrameSeq());
+        }
+    }
+
     private P2PMessage decodeControlMessage(String base64Data, String dataType) {
         if (base64Data == null) {
             return null;
@@ -790,6 +897,33 @@ public class P2PClientApp {
         } catch (Exception e) {
             logger.error("Failed to decode control relay payload", e);
             return null;
+        }
+    }
+
+    private void recordRelayLatency(long latencyMs) {
+        if (latencyMs < 0) {
+            return;
+        }
+        relayLatencySum.add(latencyMs);
+        relayLatencyCount.increment();
+        relayLatencyMax.accumulate(latencyMs);
+        relayLatencyMin.accumulate(latencyMs);
+
+        long now = System.currentTimeMillis();
+        long lastLog = lastRelayLatencyLog.get();
+        if (now - lastLog >= 2000 && lastRelayLatencyLog.compareAndSet(lastLog, now)) {
+            long count = relayLatencyCount.sumThenReset();
+            long total = relayLatencySum.sumThenReset();
+            long max = relayLatencyMax.getThenReset();
+            long min = relayLatencyMin.getThenReset();
+            if (count > 0) {
+                long avg = total / count;
+                logger.info("Relay latency: avg={}ms, min={}ms, max={}ms over {} frames",
+                    avg,
+                    min == Long.MAX_VALUE ? "n/a" : min,
+                    max == Long.MIN_VALUE ? "n/a" : max,
+                    count);
+            }
         }
     }
 
@@ -1014,73 +1148,206 @@ public class P2PClientApp {
     private class RelayScreenSender implements Runnable {
         private final String targetPeerId;
         private final AtomicBoolean running = new AtomicBoolean(true);
-        private final long delayMs;
-        private final int fps;
+        private volatile ScreenQualityProfile currentProfile;
 
         RelayScreenSender(String targetPeerId) {
             this.targetPeerId = targetPeerId;
-            Properties props = loadConfig();
-            // CRITICAL: Reduced FPS from 8 to 6 to compensate for higher quality/resolution
-            // This trades slightly lower frame rate for better quality per frame
-            int configuredFps = 6;
-            try {
-                configuredFps = Integer.parseInt(props.getProperty("screen.capture.fps", "6"));
-            } catch (NumberFormatException e) {
-                logger.warn("Invalid screen.capture.fps value, using default 6", e);
-            }
-            this.fps = Math.max(1, configuredFps);
-            this.delayMs = Math.max(80, 1000 / this.fps);
-            logger.info("RelayScreenSender configured for {} FPS (delay {} ms)", this.fps, this.delayMs);
+            this.currentProfile = screenCapture != null ? screenCapture.getProfile() : qualityProfile;
+            logger.info("RelayScreenSender configured with profile {}", currentProfile);
         }
 
         void stop() {
             running.set(false);
         }
 
+        /**
+         * Update the active profile for this relay sender.
+         * Used when user changes quality via GUI during an active session.
+         */
+        void updateProfile(ScreenQualityProfile newProfile) {
+            ScreenQualityProfile oldProfile = this.currentProfile;
+            this.currentProfile = newProfile;
+            logger.info("RelayScreenSender profile updated: {} -> {}", oldProfile, newProfile);
+        }
+
         @Override
         public void run() {
-            logger.info("RelayScreenSender started for targetPeerId={}, fps={}, delayMs={}ms", targetPeerId, fps, delayMs);
-            int frameCounter = 0;
+            if (screenCapture == null) {
+                logger.warn("ScreenCapture is null, stopping relay sender");
+                return;
+            }
+            final AdaptiveAverager frameSizeAvg = new AdaptiveAverager(20);
+            final AdaptiveAverager captureAvg = new AdaptiveAverager(20);
+            final AdaptiveAverager sendAvg = new AdaptiveAverager(20);
+            final AdaptiveAverager totalAvg = new AdaptiveAverager(20);
+
+            logger.info("RelayScreenSender started for targetPeerId={}, targetFps={}, targetBitrate={}bps",
+                targetPeerId, currentProfile.getTargetFps(), currentProfile.getTargetBitrateBitsPerSec());
+            
+            long fpsWindowStart = System.currentTimeMillis();
+            int framesInWindow = 0;
+            long lastStatsLog = System.currentTimeMillis();
+            long lastDowngradeCheck = System.currentTimeMillis();
+            long downgradeWindowStart = System.currentTimeMillis();
+            int downgradeFramesInWindow = 0;
+
             while (running.get()) {
-                try {
-                    if (screenCapture == null) {
-                        logger.warn("ScreenCapture is null, stopping relay sender");
-                        break;
-                    }
-                    // Use relay-optimized capture (improved quality for better readability)
-                    byte[] imageBytes = screenCapture.captureScreenForRelay();
-                    if (imageBytes != null && imageBytes.length > 0) {
-                        frameCounter++;
-                        String base64 = Base64.getEncoder().encodeToString(imageBytes);
-                        int base64Len = base64.length();
-                        // Get actual relay resolution from ScreenCapture (960x540)
-                        int relayWidth = 960;
-                        int relayHeight = 540;
-                        if (frameCounter % 10 == 0) {
-                            logger.info("RelayScreenSender frame {}: jpegSize={} bytes, base64Len={}, relayResolution={}x{}, wsConnected={}, delay={}ms",
-                                frameCounter, imageBytes.length, base64Len, relayWidth, relayHeight, 
-                                idServerClient.isWebSocketConnected(), delayMs);
+                ScreenQualityProfile profile = currentProfile; // Read once per loop
+                double maxBytesPerSec = profile.getTargetBitrateBitsPerSec() / 8.0;
+                
+                long loopStart = System.currentTimeMillis();
+                long frameSeq = relayFrameSequence.incrementAndGet();
+                byte[] imageBytes = screenCapture.captureScreenForRelay(profile);
+                long afterCapture = System.currentTimeMillis();
+                long captureMs = afterCapture - loopStart;
+
+                if (imageBytes == null || imageBytes.length == 0) {
+                    logger.warn("RelayScreenSender: capture returned null/empty frame");
+                    sleepQuietly(20);
+                    continue;
+                }
+
+                String base64 = Base64.getEncoder().encodeToString(imageBytes);
+                RelayMessage relayMessage = new RelayMessage(
+                        myPeerId,
+                        targetPeerId,
+                        "SCREEN",
+                        base64,
+                        System.currentTimeMillis()
+                );
+                relayMessage.setFrameSeq(frameSeq);
+                relayMessage.setSendTimestampMs(System.currentTimeMillis());
+
+                long sendStart = System.currentTimeMillis();
+                idServerClient.sendRelayData(relayMessage);
+                long afterSend = System.currentTimeMillis();
+                long sendMs = afterSend - sendStart;
+                long totalMs = afterSend - loopStart;
+
+                captureAvg.addSample(captureMs);
+                sendAvg.addSample(sendMs);
+                totalAvg.addSample(totalMs);
+                frameSizeAvg.addSample(imageBytes.length);
+
+                framesInWindow++;
+                downgradeFramesInWindow++;
+
+                // Periodic stats logging (every 2 seconds)
+                long now = System.currentTimeMillis();
+                if (now - lastStatsLog >= 2000) {
+                    double fps = framesInWindow * 1000.0 / Math.max(1, now - fpsWindowStart);
+                    double avgBytes = frameSizeAvg.getAverage();
+                    double adaptiveFps = Math.min(profile.getTargetFps(), maxBytesPerSec / Math.max(1.0, avgBytes));
+                    adaptiveFps = Math.max(1.0, adaptiveFps);
+                    double estMbps = (avgBytes * 8.0 * fps) / 1_000_000.0;
+                    double targetMbps = profile.getTargetBitrateBitsPerSec() / 1_000_000.0;
+                    
+                    logger.info("Relay stats: fps={}, adaptiveFps={}, captureAvg={}ms, sendAvg={}ms, totalAvg={}ms, avgFrameKB={}, profile={}, targetMbps={}, estMbps={}",
+                        String.format("%.1f", fps), String.format("%.1f", adaptiveFps),
+                        String.format("%.1f", captureAvg.getAverage()), String.format("%.1f", sendAvg.getAverage()),
+                        String.format("%.1f", totalAvg.getAverage()), String.format("%.1f", avgBytes / 1024.0),
+                        profile.name(), String.format("%.2f", targetMbps), String.format("%.2f", estMbps));
+                    
+                    lastStatsLog = now;
+                    fpsWindowStart = now;
+                    framesInWindow = 0;
+                }
+
+                // Auto-downgrade check (every 3-5 seconds, allows multiple downgrades)
+                if (now - lastDowngradeCheck >= 4000) { // Check every 4 seconds
+                    double recentFps = downgradeFramesInWindow * 1000.0 / Math.max(1, now - downgradeWindowStart);
+                    double recentTotalAvg = totalAvg.getAverage();
+                    double avgFrameKB = frameSizeAvg.getAverage() / 1024.0;
+                    
+                    ScreenQualityProfile newProfile = null;
+                    String reason = null;
+                    
+                    // LAN_HIGH -> WAN_SAFE: if FPS < 8 or avg frame time > 250ms
+                    if (profile == ScreenQualityProfile.LAN_HIGH) {
+                        if (recentFps < 8.0 || recentTotalAvg > 250.0) {
+                            newProfile = ScreenQualityProfile.WAN_SAFE;
+                            reason = String.format("fps=%.1f < 8 OR totalAvg=%.1fms > 250ms", recentFps, recentTotalAvg);
                         }
-                        RelayMessage relayMessage = new RelayMessage(
-                                myPeerId,
-                                targetPeerId,
-                                "SCREEN",
-                                base64,
-                                System.currentTimeMillis()
-                        );
-                        idServerClient.sendRelayData(relayMessage);
-                    } else {
-                        logger.warn("RelayScreenSender: capture returned null/empty frame");
                     }
-                    Thread.sleep(delayMs);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception e) {
-                    logger.error("Relay screen sender error", e);
+                    // WAN_SAFE -> WAN_ULTRA: if FPS < 4 or avg frame time > 400ms
+                    else if (profile == ScreenQualityProfile.WAN_SAFE) {
+                        if (recentFps < 4.0 || recentTotalAvg > 400.0) {
+                            newProfile = ScreenQualityProfile.WAN_ULTRA;
+                            reason = String.format("fps=%.1f < 4 OR totalAvg=%.1fms > 400ms", recentFps, recentTotalAvg);
+                        }
+                    }
+                    
+                    if (newProfile != null) {
+                        logger.warn("Auto-downgrade: {} -> {} ({}, avgFrameKB={})",
+                            profile.name(), newProfile.name(), reason, String.format("%.1f", avgFrameKB));
+                        currentProfile = newProfile;
+                        logger.info("RelayScreenSender profile downgraded to {} (will use for next frames)", newProfile.name());
+                    }
+                    
+                    lastDowngradeCheck = now;
+                    downgradeWindowStart = now;
+                    downgradeFramesInWindow = 0;
+                }
+
+                // Adaptive FPS calculation
+                // Clamp adaptive FPS between 2.0 (minimum usable) and profile targetFps
+                double avgBytes = frameSizeAvg.getAverage();
+                if (avgBytes <= 0) {
+                    avgBytes = imageBytes.length;
+                }
+                double adaptiveFps = Math.min(profile.getTargetFps(), maxBytesPerSec / Math.max(1.0, avgBytes));
+                adaptiveFps = Math.max(2.0, adaptiveFps); // Minimum 2 FPS for usability
+                long dynamicIntervalMs = Math.max(1L, (long) (1000.0 / adaptiveFps));
+
+                if (totalMs > dynamicIntervalMs + 10) {
+                    logger.debug("Relay pipeline slower than target: total={}ms target={}ms (frameSeq={})",
+                        totalMs, dynamicIntervalMs, frameSeq);
+                }
+
+                long sleepMs = dynamicIntervalMs - totalMs;
+                if (sleepMs > 0) {
+                    sleepQuietly(sleepMs);
                 }
             }
             logger.info("Relay screen sender stopped for {}", targetPeerId);
+        }
+
+        private void sleepQuietly(long millis) {
+            try {
+                Thread.sleep(Math.max(1, millis));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private static final class AdaptiveAverager {
+        private final int window;
+        private final long[] samples;
+        private int index = 0;
+        private int count = 0;
+        private long sum = 0;
+
+        AdaptiveAverager(int window) {
+            this.window = Math.max(1, window);
+            this.samples = new long[this.window];
+        }
+
+        synchronized void addSample(long value) {
+            if (count < window) {
+                samples[index] = value;
+                sum += value;
+                count++;
+            } else {
+                sum -= samples[index];
+                samples[index] = value;
+                sum += value;
+            }
+            index = (index + 1) % window;
+        }
+
+        synchronized double getAverage() {
+            return count == 0 ? 0d : (double) sum / count;
         }
     }
 
@@ -1182,6 +1449,11 @@ public class P2PClientApp {
         
         // Stop all relay monitors
         stopAllRelayMonitors();
+
+        if (relayFrameWorker != null) {
+            relayFrameWorker.interrupt();
+        }
+        relayFrameQueue.clear();
         
         if (idServerClient != null) {
             try {
@@ -1195,22 +1467,34 @@ public class P2PClientApp {
     }
 
     public static void main(String[] args) {
+        Logger rootLogger = LoggerFactory.getLogger(P2PClientApp.class);
         // DIAGNOSTIC: Set global uncaught exception handler
         Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
-            Logger logger = LoggerFactory.getLogger(P2PClientApp.class);
-            logger.error("UNCAUGHT EXCEPTION on thread {}: {}", thread.getName(), exception.getMessage(), exception);
+            rootLogger.error("UNCAUGHT EXCEPTION on thread {}: {}", thread.getName(), exception.getMessage(), exception);
             // Don't call System.exit here - let the exception propagate or be handled
         });
         
         // DIAGNOSTIC: Set AWT exception handler
         System.setProperty("sun.awt.exception.handler", P2PClientApp.class.getName());
         
-        P2PClientApp app = new P2PClientApp();
+        ScreenQualityProfile profile = resolveProfileFromArgs(args);
+        rootLogger.info("CLI selected screen quality profile: {}", profile);
+        P2PClientApp app = new P2PClientApp(profile);
         
         // Add shutdown hook
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            app.shutdown();
-        }));
+        Runtime.getRuntime().addShutdownHook(new Thread(app::shutdown));
+    }
+    
+    private static ScreenQualityProfile resolveProfileFromArgs(String[] args) {
+        if (args != null) {
+            for (String arg : args) {
+                if (arg != null && arg.startsWith("--quality=")) {
+                    String value = arg.substring("--quality=".length());
+                    return ScreenQualityProfile.fromCliArg(value);
+                }
+            }
+        }
+        return ScreenQualityProfile.defaultProfile();
     }
 }
 

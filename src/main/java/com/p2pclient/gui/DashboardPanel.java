@@ -23,10 +23,12 @@ public class DashboardPanel extends JPanel {
     private JLabel statusLabel;
     private JLabel connectionModeLabel;
     private JButton copyPeerIdButton;
+    private JComboBox<String> qualityComboBox;
 
     public interface DashboardListener {
         void onConnectToPeer(String targetPeerId, String password);
         void onDisconnect();
+        void onQualityProfileChanged(String profileName);
     }
 
     private DashboardListener listener;
@@ -102,6 +104,28 @@ public class DashboardPanel extends JPanel {
 
         gbc.gridx = 0;
         gbc.gridy = 2;
+        gbc.gridwidth = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
+        centerPanel.add(new JLabel("Screen Quality:"), gbc);
+        
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        qualityComboBox = new JComboBox<>(new String[]{"WAN_SAFE (Default)", "WAN_ULTRA (Slow Network)", "LAN_HIGH (LAN Only)"});
+        qualityComboBox.setSelectedIndex(0); // Default to WAN_SAFE
+        qualityComboBox.setToolTipText("Select screen quality profile. WAN_SAFE is recommended for internet connections.");
+        qualityComboBox.addActionListener(e -> {
+            String selected = (String) qualityComboBox.getSelectedItem();
+            if (selected != null && listener != null) {
+                String profileName = selected.split(" ")[0]; // Extract "WAN_SAFE" from "WAN_SAFE (Default)"
+                listener.onQualityProfileChanged(profileName);
+            }
+        });
+        centerPanel.add(qualityComboBox, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         JPanel buttonPanel = new JPanel(new FlowLayout());
