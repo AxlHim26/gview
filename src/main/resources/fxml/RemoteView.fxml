@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.canvas.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.RemoteViewController">
+    <top>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <padding>
+                <Insets topRightBottomLeft="10" />
+            </padding>
+            <Label text="Remote View" styleClass="section-title" />
+            <Label fx:id="metricsLabel" text="fps: - | rtt: - | cpu: -" styleClass="muted" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="roleLabel" text="Role: idle" />
+        </HBox>
+    </top>
+    <center>
+        <StackPane styleClass="remote-surface">
+            <Canvas fx:id="remoteCanvas" width="900" height="620" />
+            <Label fx:id="overlayLabel" text="Waiting for session" styleClass="overlay" />
+        </StackPane>
+    </center>
+</BorderPane>

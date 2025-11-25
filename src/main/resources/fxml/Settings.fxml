@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.SettingsController"
+      spacing="10">
+    <padding>
+        <Insets topRightBottomLeft="12" />
+    </padding>
+    <Label text="Settings" styleClass="section-title" />
+
+    <TitledPane text="Appearance" expanded="true">
+        <VBox spacing="8">
+            <padding>
+                <Insets topRightBottomLeft="10" />
+            </padding>
+            <Label text="Theme" />
+            <ComboBox fx:id="themeComboBox" />
+        </VBox>
+    </TitledPane>
+
+    <TitledPane text="Streaming" expanded="true">
+        <VBox spacing="8">
+            <padding>
+                <Insets topRightBottomLeft="10" />
+            </padding>
+            <Label text="Screen Quality" />
+            <ComboBox fx:id="qualityComboBox" />
+            <Label fx:id="qualityHelpLabel" wrapText="true" styleClass="muted" />
+        </VBox>
+    </TitledPane>
+
+    <TitledPane text="Diagnostics" expanded="false">
+        <VBox spacing="8">
+            <padding>
+                <Insets topRightBottomLeft="10" />
+            </padding>
+            <CheckBox fx:id="logRelayCheckBox" text="Log relay traffic" />
+            <CheckBox fx:id="logUiEventsCheckBox" text="Verbose UI logs" />
+        </VBox>
+    </TitledPane>
+</VBox>

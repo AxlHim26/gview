@@ -1,0 +1,54 @@
+.root {
+    -fx-font-family: "Inter", "Segoe UI", "Arial";
+    -fx-base: #0d1624;
+    -fx-background-color: #0d1624;
+    -fx-text-fill: #e8eef9;
+}
+
+.section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #f0f4ff;
+}
+
+.panel-border {
+    -fx-background-color: #131f33;
+    -fx-border-color: #25344d;
+    -fx-border-width: 1;
+    -fx-padding: 6;
+}
+
+.status-bar {
+    -fx-background-color: linear-gradient(to right, #1d2b40, #18263a);
+    -fx-border-color: #25344d;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 8 12;
+    -fx-text-fill: #d8e1ec;
+}
+
+.remote-surface {
+    -fx-background-color: radial-gradient(center 50% 50%, radius 70%, #0b1423, #050910);
+}
+
+.overlay {
+    -fx-text-fill: #b7c7e2;
+    -fx-font-size: 18px;
+    -fx-font-weight: 600;
+}
+
+.muted {
+    -fx-text-fill: #8aa0c2;
+}
+
+.label {
+    -fx-text-fill: #e8eef9;
+}
+
+.table-view {
+    -fx-background-color: #111a29;
+    -fx-border-color: #25344d;
+}
+
+.button {
+    -fx-background-radius: 6;
+}

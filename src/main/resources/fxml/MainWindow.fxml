@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.MainWindowController"
+            prefWidth="1200.0" prefHeight="800.0">
+    <top>
+        <MenuBar>
+            <menus>
+                <Menu text="File">
+                    <items>
+                        <MenuItem text="Exit" onAction="#exitApp" />
+                    </items>
+                </Menu>
+                <Menu text="View">
+                    <items>
+                        <MenuItem text="Toggle Theme" onAction="#toggleTheme" />
+                    </items>
+                </Menu>
+            </menus>
+        </MenuBar>
+    </top>
+    <left>
+        <VBox fx:id="sessionsContainer" spacing="8" prefWidth="340.0" styleClass="panel-border" />
+    </left>
+    <center>
+        <StackPane fx:id="remoteContainer" styleClass="panel-border" />
+    </center>
+    <right>
+        <VBox fx:id="settingsContainer" spacing="8" prefWidth="260.0" styleClass="panel-border" />
+    </right>
+    <bottom>
+        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="status-bar">
+            <Label fx:id="statusLabel" text="Ready" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="connectionModeLabel" text="Mode: idle" />
+            <Button text="Light/Dark" onAction="#toggleTheme" />
+        </HBox>
+    </bottom>
+</BorderPane>

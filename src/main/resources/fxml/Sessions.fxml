@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.SessionsController"
+      spacing="10">
+    <padding>
+        <Insets topRightBottomLeft="12" />
+    </padding>
+    <Label text="Sessions" styleClass="section-title" />
+
+    <TitledPane text="Identity" expanded="true">
+        <VBox spacing="8">
+            <padding>
+                <Insets topRightBottomLeft="10" />
+            </padding>
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <Label text="Password" minWidth="80" />
+                <PasswordField fx:id="passwordField" promptText="Set a password" HBox.hgrow="ALWAYS" />
+                <Button fx:id="registerButton" text="Register" onAction="#registerPeer" />
+            </HBox>
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <Label text="Existing ID" minWidth="80" />
+                <TextField fx:id="existingPeerIdField" promptText="XXX-XXX-XXX" HBox.hgrow="ALWAYS" />
+                <Button fx:id="useExistingButton" text="Use ID" onAction="#connectExistingId" />
+            </HBox>
+            <Label fx:id="myPeerIdLabel" text="Peer ID: not registered" />
+            <Label fx:id="identityStatusLabel" textFill="#4f6f8f" />
+        </VBox>
+    </TitledPane>
+
+    <TitledPane text="Connect to Peer" expanded="true">
+        <VBox spacing="8">
+            <padding>
+                <Insets topRightBottomLeft="10" />
+            </padding>
+            <TextField fx:id="targetPeerIdField" promptText="Target peer (XXX-XXX-XXX)" />
+            <PasswordField fx:id="connectPasswordField" promptText="Password" />
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <Label text="Quality" minWidth="80" />
+                <ChoiceBox fx:id="qualityChoiceBox" />
+                <Region HBox.hgrow="ALWAYS" />
+            </HBox>
+            <HBox spacing="8">
+                <Button fx:id="connectButton" text="Connect" onAction="#connectToPeer" />
+                <Button fx:id="disconnectButton" text="Disconnect" onAction="#disconnectFromPeer" disable="true" />
+            </HBox>
+            <Label fx:id="connectionModeLabel" text="Mode: Idle" />
+        </VBox>
+    </TitledPane>
+
+    <TitledPane text="Sessions" expanded="true">
+        <VBox spacing="6">
+            <padding>
+                <Insets topRightBottomLeft="10" />
+            </padding>
+            <TableView fx:id="sessionTable" prefHeight="180">
+                <columns>
+                    <TableColumn fx:id="peerColumn" text="Peer" prefWidth="140" />
+                    <TableColumn fx:id="modeColumn" text="Mode" prefWidth="100" />
+                    <TableColumn fx:id="statusColumn" text="Status" prefWidth="120" />
+                </columns>
+            </TableView>
+            <Label text="Activity Log" />
+            <TextArea fx:id="logArea" prefHeight="140" editable="false" wrapText="true" />
+        </VBox>
+    </TitledPane>
+</VBox>
