@@ -5,17 +5,24 @@ import com.p2pclient.remote.InputForwarder;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.geometry.Point2D;
+import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
 import javafx.scene.image.PixelWriter;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Button;
 
 import java.awt.image.BufferedImage;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,6 +36,14 @@ public class RemoteViewController {
     private Label metricsLabel;
     @FXML
     private Label roleLabel;
+    @FXML
+    private StackPane remoteSurface;
+    @FXML
+    private Button fullScreenButton;
+    @FXML
+    private TextArea chatArea;
+    @FXML
+    private TextField chatInput;
 
     private FxClientCoordinator coordinator;
     private InputForwarder inputForwarder;
@@ -42,6 +57,8 @@ public class RemoteViewController {
     private WritableImageHolder currentImage = new WritableImageHolder();
     private final AtomicLong renderWindowStart = new AtomicLong(System.currentTimeMillis());
     private final AtomicLong renderFrames = new AtomicLong();
+    private Pane remoteSurfaceParent;
+    private int remoteSurfaceIndex = -1;
 
     @FXML
     public void initialize() {
@@ -72,6 +89,76 @@ public class RemoteViewController {
     public void setController(boolean controller) {
         this.controller = controller;
         Platform.runLater(() -> roleLabel.setText(controller ? "Role: Controller" : "Role: Controlled"));
+    }
+
+    @FXML
+    private void toggleFullScreen() {
+        if (coordinator == null) {
+            return;
+        }
+        boolean full = coordinator.toggleFullScreen();
+        setFullScreenState(full);
+    }
+
+    @FXML
+    private void sendChat() {
+        String text = chatInput.getText();
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        appendChat("Me: " + text.trim());
+        chatInput.clear();
+    }
+
+    public void appendChat(String message) {
+        Platform.runLater(() -> {
+            if (chatArea.getText().isBlank()) {
+                chatArea.setText(message);
+            } else {
+                chatArea.appendText("\n" + message);
+            }
+            chatArea.setScrollTop(Double.MAX_VALUE);
+        });
+    }
+
+    public void setFullScreenState(boolean full) {
+        Platform.runLater(() -> {
+            if (fullScreenButton != null) {
+                fullScreenButton.setText(full ? "Exit Fullscreen" : "Fullscreen");
+            }
+        });
+    }
+
+    public Node detachRemoteSurface() {
+        if (remoteSurface == null) {
+            return null;
+        }
+        Parent parent = remoteSurface.getParent();
+        if (!(parent instanceof Pane pane)) {
+            return remoteSurface;
+        }
+        if (remoteSurfaceParent == null) {
+            remoteSurfaceParent = pane;
+            remoteSurfaceIndex = pane.getChildren().indexOf(remoteSurface);
+        }
+        pane.getChildren().remove(remoteSurface);
+        return remoteSurface;
+    }
+
+    public void restoreRemoteSurface() {
+        if (remoteSurfaceParent == null || remoteSurface == null) {
+            return;
+        }
+        var children = remoteSurfaceParent.getChildren();
+        if (!children.contains(remoteSurface)) {
+            if (remoteSurfaceIndex >= 0 && remoteSurfaceIndex <= children.size()) {
+                children.add(remoteSurfaceIndex, remoteSurface);
+            } else {
+                children.add(remoteSurface);
+            }
+        }
+        remoteSurfaceParent = null;
+        remoteSurfaceIndex = -1;
     }
 
     public void updateRemoteScreen(BufferedImage image, P2PMessage metadata) {

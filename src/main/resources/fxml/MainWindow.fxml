@@ -20,15 +20,18 @@
             </menus>
         </MenuBar>
     </top>
-    <left>
-        <VBox fx:id="sessionsContainer" spacing="8" prefWidth="340.0" styleClass="panel-border" />
-    </left>
     <center>
-        <StackPane fx:id="remoteContainer" styleClass="panel-border" />
+        <SplitPane dividerPositions="0.3">
+            <items>
+                <ScrollPane hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" fitToWidth="true" styleClass="panel-border">
+                    <content>
+                        <VBox fx:id="sessionsContainer" spacing="8" minWidth="260.0" prefWidth="340.0" styleClass="panel-border" />
+                    </content>
+                </ScrollPane>
+                <StackPane fx:id="remoteContainer" styleClass="panel-border" />
+            </items>
+        </SplitPane>
     </center>
-    <right>
-        <VBox fx:id="settingsContainer" spacing="8" prefWidth="260.0" styleClass="panel-border" />
-    </right>
     <bottom>
         <HBox spacing="12" alignment="CENTER_LEFT" styleClass="status-bar">
             <Label fx:id="statusLabel" text="Ready" />

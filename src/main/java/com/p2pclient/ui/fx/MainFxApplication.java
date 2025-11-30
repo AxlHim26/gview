@@ -22,6 +22,7 @@ public class MainFxApplication extends Application {
             stage.getIcons().add(new Image(iconStream));
         }
         stage.setScene(scene);
+        stage.setMaximized(true);
         stage.show();
 
         MainWindowController controller = loader.getController();

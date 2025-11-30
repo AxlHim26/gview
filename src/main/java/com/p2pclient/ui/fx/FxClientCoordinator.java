@@ -112,6 +112,13 @@ public class FxClientCoordinator {
         });
     }
 
+    public boolean toggleFullScreen() {
+        if (mainWindowController == null) {
+            return false;
+        }
+        return mainWindowController.toggleRemoteOnlyFullscreen();
+    }
+
     public void registerNewPeer(String password) {
         sessionsController.showInlineStatus("Registering...", false);
         executorService.submit(() -> {

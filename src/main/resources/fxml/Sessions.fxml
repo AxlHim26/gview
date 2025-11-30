@@ -50,12 +50,12 @@
         </VBox>
     </TitledPane>
 
-    <TitledPane text="Sessions" expanded="true">
+    <TitledPane text="Sessions" expanded="true" VBox.vgrow="ALWAYS" maxHeight="1.7976931348623157E308">
         <VBox spacing="6">
             <padding>
                 <Insets topRightBottomLeft="10" />
             </padding>
-            <TableView fx:id="sessionTable" prefHeight="180">
+            <TableView fx:id="sessionTable" minHeight="160" VBox.vgrow="ALWAYS">
                 <columns>
                     <TableColumn fx:id="peerColumn" text="Peer" prefWidth="140" />
                     <TableColumn fx:id="modeColumn" text="Mode" prefWidth="100" />
@@ -63,7 +63,7 @@
                 </columns>
             </TableView>
             <Label text="Activity Log" />
-            <TextArea fx:id="logArea" prefHeight="140" editable="false" wrapText="true" />
+            <TextArea fx:id="logArea" minHeight="120" editable="false" wrapText="true" VBox.vgrow="ALWAYS" />
         </VBox>
     </TitledPane>
 </VBox>

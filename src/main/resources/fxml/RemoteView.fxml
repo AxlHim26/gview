@@ -3,6 +3,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
+<?import javafx.geometry.Pos?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.RemoteViewController" styleClass="surface">
     <top>
@@ -13,13 +14,24 @@
             <Label text="Remote View" styleClass="section-title" />
             <Label fx:id="metricsLabel" text="fps: - | rtt: - | cpu: -" styleClass="muted" />
             <Region HBox.hgrow="ALWAYS" />
+            <Button fx:id="fullScreenButton" text="Fullscreen" onAction="#toggleFullScreen" />
             <Label fx:id="roleLabel" text="Role: idle" />
         </HBox>
     </top>
     <center>
-        <StackPane styleClass="remote-surface">
-            <Canvas fx:id="remoteCanvas" width="900" height="620" />
-            <Label fx:id="overlayLabel" text="Waiting for session" styleClass="overlay" />
-        </StackPane>
+        <VBox spacing="10">
+            <StackPane fx:id="remoteSurface" styleClass="remote-surface" VBox.vgrow="ALWAYS">
+                <Canvas fx:id="remoteCanvas" width="900" height="520" />
+                <Label fx:id="overlayLabel" text="Waiting for session" styleClass="overlay" />
+            </StackPane>
+            <VBox fx:id="chatContainer" spacing="6" styleClass="panel-border">
+                <Label text="Chat" styleClass="section-title" />
+                <TextArea fx:id="chatArea" prefRowCount="3" wrapText="true" editable="false" />
+                <HBox spacing="8" alignment="CENTER_LEFT">
+                    <TextField fx:id="chatInput" promptText="Type a message..." HBox.hgrow="ALWAYS" />
+                    <Button text="Send" onAction="#sendChat" />
+                </HBox>
+            </VBox>
+        </VBox>
     </center>
 </BorderPane>
