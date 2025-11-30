@@ -4,9 +4,9 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 
-<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.RemoteViewController">
+<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.RemoteViewController" styleClass="surface">
     <top>
-        <HBox spacing="10" alignment="CENTER_LEFT">
+        <HBox spacing="10" alignment="CENTER_LEFT" styleClass="toolbar">
             <padding>
                 <Insets topRightBottomLeft="10" />
             </padding>

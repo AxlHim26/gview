@@ -1,7 +1,7 @@
 .root {
     -fx-font-family: "Inter", "Segoe UI", "Arial";
-    -fx-base: #f5f7fb;
-    -fx-background-color: #f5f7fb;
+    -fx-base: #eef2f9;
+    -fx-background-color: linear-gradient(to bottom right, #f7f9ff, #e7ecf7);
     -fx-text-fill: #1f2b3a;
 }
 
@@ -10,11 +10,45 @@
     -fx-font-weight: 600;
 }
 
+.muted {
+    -fx-text-fill: #6b7a90;
+}
+
+.surface {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-border-color: #d9e2ec;
+    -fx-border-width: 1;
+    -fx-padding: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 14, 0.12, 0, 6);
+}
+
 .panel-border {
     -fx-background-color: #ffffff;
     -fx-border-color: #d9e2ec;
     -fx-border-width: 1;
-    -fx-padding: 6;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-padding: 10;
+}
+
+.titled-pane > .title {
+    -fx-background-color: linear-gradient(to bottom, #f5f8ff, #edf2fb);
+    -fx-background-radius: 10 10 0 0;
+    -fx-border-radius: 10 10 0 0;
+    -fx-padding: 8 10;
+    -fx-font-weight: 600;
+    -fx-text-fill: #1f2b3a;
+    -fx-border-color: #dfe7f2;
+    -fx-border-width: 0 0 1 0;
+}
+
+.titled-pane > *.content {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 0 0 10 10;
+    -fx-border-radius: 0 0 10 10;
+    -fx-padding: 6 10 10 10;
 }
 
 .status-bar {
@@ -26,6 +60,8 @@
 
 .remote-surface {
     -fx-background-color: radial-gradient(center 50% 50%, radius 70%, #0b1a29, #0e1f35);
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 22, 0.15, 0, 8);
 }
 
 .overlay {
@@ -45,8 +81,60 @@
 .table-view {
     -fx-background-color: #ffffff;
     -fx-border-color: #d9e2ec;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 4;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #f0f4fb;
+    -fx-background-insets: 0;
+    -fx-background-radius: 8 8 0 0;
+}
+
+.table-view .table-row-cell {
+    -fx-background-insets: 0;
+    -fx-padding: 6;
+}
+
+.text-area, .text-field, .password-field, .choice-box, .combo-box {
+    -fx-background-color: #f7f9ff;
+    -fx-background-radius: 10;
+    -fx-border-color: #d7e1ef;
+    -fx-border-radius: 10;
+    -fx-text-fill: #1f2b3a;
+    -fx-prompt-text-fill: #9aa8bf;
 }
 
 .button {
-    -fx-background-radius: 6;
+    -fx-background-radius: 12;
+    -fx-padding: 9 16;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+    -fx-background-color: linear-gradient(to bottom, #f5f7fb, #e4eaf5);
+}
+
+.primary-button {
+    -fx-background-color: linear-gradient(to right, #5c8dff, #3f6df5);
+    -fx-text-fill: #ffffff;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(65,105,225,0.32), 18, 0.25, 0, 6);
+}
+
+.primary-button:hover {
+    -fx-background-color: linear-gradient(to right, #6d9cff, #4c7dff);
+}
+
+.ghost-button {
+    -fx-background-color: transparent;
+    -fx-border-color: #c5cedc;
+    -fx-text-fill: #1f2b3a;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+}
+
+.ghost-button:hover {
+    -fx-background-color: #edf2fb;
 }

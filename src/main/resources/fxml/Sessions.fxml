@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.*?>
 
 <VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.SessionsController"
-      spacing="10">
+      spacing="10" styleClass="surface">
     <padding>
         <Insets topRightBottomLeft="12" />
     </padding>
@@ -18,12 +18,12 @@
             <HBox spacing="8" alignment="CENTER_LEFT">
                 <Label text="Password" minWidth="80" />
                 <PasswordField fx:id="passwordField" promptText="Set a password" HBox.hgrow="ALWAYS" />
-                <Button fx:id="registerButton" text="Register" onAction="#registerPeer" />
+                <Button fx:id="registerButton" text="Register" onAction="#registerPeer" styleClass="primary-button" />
             </HBox>
             <HBox spacing="8" alignment="CENTER_LEFT">
                 <Label text="Existing ID" minWidth="80" />
                 <TextField fx:id="existingPeerIdField" promptText="XXX-XXX-XXX" HBox.hgrow="ALWAYS" />
-                <Button fx:id="useExistingButton" text="Use ID" onAction="#connectExistingId" />
+                <Button fx:id="useExistingButton" text="Use ID" onAction="#connectExistingId" styleClass="ghost-button" />
             </HBox>
             <Label fx:id="myPeerIdLabel" text="Peer ID: not registered" />
             <Label fx:id="identityStatusLabel" textFill="#4f6f8f" />

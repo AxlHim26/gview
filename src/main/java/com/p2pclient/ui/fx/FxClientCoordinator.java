@@ -295,7 +295,6 @@ public class FxClientCoordinator {
         }
         Platform.runLater(() -> {
             sessionsController.setSelectedProfile(newProfile);
-            settingsController.setQualityProfile(newProfile);
             sessionsController.appendLog("Quality profile set to " + newProfile.name());
         });
     }

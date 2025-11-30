@@ -20,17 +20,6 @@
         </VBox>
     </TitledPane>
 
-    <TitledPane text="Streaming" expanded="true">
-        <VBox spacing="8">
-            <padding>
-                <Insets topRightBottomLeft="10" />
-            </padding>
-            <Label text="Screen Quality" />
-            <ComboBox fx:id="qualityComboBox" />
-            <Label fx:id="qualityHelpLabel" wrapText="true" styleClass="muted" />
-        </VBox>
-    </TitledPane>
-
     <TitledPane text="Diagnostics" expanded="false">
         <VBox spacing="8">
             <padding>

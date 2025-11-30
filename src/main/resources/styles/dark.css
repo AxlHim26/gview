@@ -1,7 +1,7 @@
 .root {
     -fx-font-family: "Inter", "Segoe UI", "Arial";
     -fx-base: #0d1624;
-    -fx-background-color: #0d1624;
+    -fx-background-color: linear-gradient(to bottom right, #0c1422, #0a1b33);
     -fx-text-fill: #e8eef9;
 }
 
@@ -11,11 +11,45 @@
     -fx-text-fill: #f0f4ff;
 }
 
+.muted {
+    -fx-text-fill: #8aa0c2;
+}
+
+.surface {
+    -fx-background-color: #111b2e;
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-border-color: #23324a;
+    -fx-border-width: 1;
+    -fx-padding: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 14, 0.12, 0, 6);
+}
+
 .panel-border {
     -fx-background-color: #131f33;
     -fx-border-color: #25344d;
     -fx-border-width: 1;
-    -fx-padding: 6;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-padding: 10;
+}
+
+.titled-pane > .title {
+    -fx-background-color: linear-gradient(to bottom, #18263a, #121c2e);
+    -fx-background-radius: 10 10 0 0;
+    -fx-border-radius: 10 10 0 0;
+    -fx-padding: 8 10;
+    -fx-font-weight: 600;
+    -fx-text-fill: #e8eef9;
+    -fx-border-color: #25344d;
+    -fx-border-width: 0 0 1 0;
+}
+
+.titled-pane > *.content {
+    -fx-background-color: #111b2e;
+    -fx-background-radius: 0 0 10 10;
+    -fx-border-radius: 0 0 10 10;
+    -fx-padding: 6 10 10 10;
 }
 
 .status-bar {
@@ -28,6 +62,8 @@
 
 .remote-surface {
     -fx-background-color: radial-gradient(center 50% 50%, radius 70%, #0b1423, #050910);
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.28), 22, 0.2, 0, 8);
 }
 
 .overlay {
@@ -47,8 +83,57 @@
 .table-view {
     -fx-background-color: #111a29;
     -fx-border-color: #25344d;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 4;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #18263a;
+    -fx-background-insets: 0;
+    -fx-background-radius: 8 8 0 0;
+}
+
+.table-view .table-row-cell {
+    -fx-background-insets: 0;
+    -fx-padding: 6;
+}
+
+.text-area, .text-field, .password-field, .choice-box, .combo-box {
+    -fx-background-color: #18263a;
+    -fx-background-radius: 10;
+    -fx-border-color: #25344d;
+    -fx-border-radius: 10;
+    -fx-text-fill: #e8eef9;
+    -fx-prompt-text-fill: #7586a8;
 }
 
 .button {
-    -fx-background-radius: 6;
+    -fx-background-radius: 10;
+    -fx-padding: 8 14;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+    -fx-background-color: linear-gradient(to bottom, #1a2538, #151d2f);
+}
+
+.primary-button {
+    -fx-background-color: linear-gradient(to right, #5c8dff, #3f6df5);
+    -fx-text-fill: #ffffff;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+}
+
+.primary-button:hover {
+    -fx-background-color: linear-gradient(to right, #6d9cff, #4c7dff);
+}
+
+.ghost-button {
+    -fx-background-color: transparent;
+    -fx-border-color: #3a4a65;
+    -fx-text-fill: #e8eef9;
+}
+
+.ghost-button:hover {
+    -fx-background-color: #1b2940;
 }
