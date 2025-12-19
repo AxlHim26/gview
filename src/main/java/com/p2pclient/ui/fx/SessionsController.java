@@ -63,11 +63,9 @@ public class SessionsController {
         sessionTable.setItems(sessions);
 
         qualityChoiceBox.setItems(FXCollections.observableArrayList(
-            "WAN_SAFE",
-            "WAN_ULTRA",
             "LAN_HIGH"
         ));
-        qualityChoiceBox.getSelectionModel().select("WAN_SAFE");
+        qualityChoiceBox.getSelectionModel().select("LAN_HIGH");
         qualityChoiceBox.setOnAction(e -> {
             if (coordinator != null) {
                 String selected = qualityChoiceBox.getSelectionModel().getSelectedItem();

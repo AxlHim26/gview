@@ -32,7 +32,7 @@ public enum ScreenQualityProfile {
      * LAN_HIGH: For local network only. High quality, high FPS.
      * Will auto-downgrade to WAN_SAFE if network cannot sustain it.
      */
-    LAN_HIGH(1280, 720, 0.40f, 22, 8_000_000);
+    LAN_HIGH(2560, 1440, 0.70f, 24, 18_000_000);
 
     private static final Logger logger = LoggerFactory.getLogger(ScreenQualityProfile.class);
 
@@ -71,7 +71,8 @@ public enum ScreenQualityProfile {
     }
 
     public static ScreenQualityProfile defaultProfile() {
-        return WAN_SAFE; // Default to WAN_SAFE for better WAN performance
+        // Single high-quality mode per user request
+        return LAN_HIGH;
     }
 
     public static ScreenQualityProfile fromCliArg(String arg) {
@@ -130,4 +131,3 @@ public enum ScreenQualityProfile {
             name(), maxWidth, maxHeight, jpegQuality, targetFps, targetBitrateBitsPerSec);
     }
 }
-
