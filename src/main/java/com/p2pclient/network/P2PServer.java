@@ -176,6 +176,7 @@ public class P2PServer {
         private ObjectOutputStream out;
         private ObjectInputStream in;
         private final AtomicBoolean running;
+        private final Object outLock = new Object();
 
         public PeerConnectionHandler(Socket socket, String peerAddress, P2PServer server) {
             this.socket = socket;
@@ -187,6 +188,10 @@ public class P2PServer {
         @Override
         public void run() {
             try {
+                // Keep connection alive for long 4K frames (no read timeout)
+                socket.setSoTimeout(0);
+                socket.setKeepAlive(true);
+
                 // CRITICAL: Initialize streams in correct order
                 // ObjectOutputStream must be created first to send header
                 out = new ObjectOutputStream(socket.getOutputStream());
@@ -236,14 +241,14 @@ public class P2PServer {
 
         public void sendMessage(P2PMessage message) {
             if (out != null && running.get()) {
-                try {
-                    out.writeObject(message);
-                    out.flush();
-                    // CRITICAL: Reset to prevent memory leak when sending same object multiple times
-                    out.reset();
-                } catch (IOException e) {
-                    logger.error("Error sending message to {}", peerAddress, e);
-                    close();
+                synchronized (outLock) {
+                    try {
+                        out.writeObject(message);
+                        out.flush();
+                    } catch (IOException e) {
+                        logger.error("Error sending message to {}", peerAddress, e);
+                        close();
+                    }
                 }
             }
         }

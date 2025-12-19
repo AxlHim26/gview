@@ -21,6 +21,7 @@ public class P2PClient {
     private ObjectInputStream in;
     private final AtomicBoolean connected;
     private Thread receiverThread;
+    private final Object sendLock = new Object();
 
     public interface MessageListener {
         void onMessageReceived(P2PMessage message);
@@ -56,7 +57,9 @@ public class P2PClient {
             
             socket = new Socket();
             socket.connect(new InetSocketAddress(host, port), 5000);
-            socket.setSoTimeout(30000); // 30 second timeout
+            // High-quality (4K) streaming can have long encode gaps; disable read timeout
+            socket.setSoTimeout(0); // 0 = infinite
+            socket.setKeepAlive(true);
             
             // CRITICAL: Initialize streams in correct order
             // ObjectOutputStream must be created first to send header
@@ -157,14 +160,14 @@ public class P2PClient {
             return;
         }
 
-        try {
-            out.writeObject(message);
-            out.flush();
-            // CRITICAL: Reset to prevent memory leak when sending same object multiple times
-            out.reset();
-        } catch (IOException e) {
-            logger.error("Error sending message", e);
-            disconnect();
+        synchronized (sendLock) {
+            try {
+                out.writeObject(message);
+                out.flush();
+            } catch (IOException e) {
+                logger.error("Error sending message", e);
+                disconnect();
+            }
         }
     }
 
