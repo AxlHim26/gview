@@ -11,8 +11,6 @@ public class SettingsController {
     @FXML
     private ComboBox<String> themeComboBox;
     @FXML
-    private CheckBox logRelayCheckBox;
-    @FXML
     private CheckBox logUiEventsCheckBox;
 
     private FxClientCoordinator coordinator;
@@ -39,10 +37,6 @@ public class SettingsController {
 
     public void selectTheme(String theme) {
         Platform.runLater(() -> themeComboBox.getSelectionModel().select(theme));
-    }
-
-    public boolean verboseRelay() {
-        return logRelayCheckBox.isSelected();
     }
 
     public boolean verboseUi() {

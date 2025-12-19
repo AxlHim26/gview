@@ -15,6 +15,7 @@ public class NetworkUtils {
      */
     public static String getLocalIPAddress() {
         try {
+            String overlayCandidate = null; // Prefer tailscale/headscale (100.x.x.x)
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             while (interfaces.hasMoreElements()) {
                 NetworkInterface networkInterface = interfaces.nextElement();
@@ -26,9 +27,25 @@ public class NetworkUtils {
                 while (addresses.hasMoreElements()) {
                     InetAddress address = addresses.nextElement();
                     if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
-                        return address.getHostAddress();
+                        String ip = address.getHostAddress();
+                        // Strongly prefer Tailscale/headscale overlay space (100.x.x.x)
+                        if (ip.startsWith("100.")) {
+                            logger.info("Using overlay IP {} from interface {}", ip, networkInterface.getName());
+                            return ip;
+                        }
+                        // Next prefer 10.x.x.x for private mesh deployments
+                        if (ip.startsWith("10.") && overlayCandidate == null) {
+                            overlayCandidate = ip;
+                        }
+                        if (overlayCandidate == null) {
+                            overlayCandidate = ip;
+                        }
                     }
                 }
+            }
+            if (overlayCandidate != null) {
+                logger.info("Using non-overlay IP candidate {} (no 100.x interface detected)", overlayCandidate);
+                return overlayCandidate;
             }
         } catch (SocketException e) {
             logger.error("Error getting local IP address", e);
@@ -89,4 +106,3 @@ public class NetworkUtils {
         return peerId.matches("\\d{3}-\\d{3}-\\d{3}");
     }
 }
-

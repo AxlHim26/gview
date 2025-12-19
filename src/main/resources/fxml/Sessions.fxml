@@ -8,43 +8,49 @@
     <padding>
         <Insets topRightBottomLeft="12" />
     </padding>
-    <Label text="Sessions" styleClass="section-title" />
+    <Label text="Tailnet P2P Sessions" styleClass="section-title" />
 
-    <TitledPane text="Identity" expanded="true">
+    <TitledPane text="Identity (đăng ký/đăng nhập với ID server)" expanded="true">
         <VBox spacing="8">
             <padding>
                 <Insets topRightBottomLeft="10" />
             </padding>
-            <HBox spacing="8" alignment="CENTER_LEFT">
-                <Label text="Password" minWidth="80" />
-                <PasswordField fx:id="passwordField" promptText="Set a password" HBox.hgrow="ALWAYS" />
-                <Button fx:id="registerButton" text="Register" onAction="#registerPeer" styleClass="primary-button" />
-            </HBox>
-            <HBox spacing="8" alignment="CENTER_LEFT">
-                <Label text="Existing ID" minWidth="80" />
-                <TextField fx:id="existingPeerIdField" promptText="XXX-XXX-XXX" HBox.hgrow="ALWAYS" />
-                <Button fx:id="useExistingButton" text="Use ID" onAction="#connectExistingId" styleClass="ghost-button" />
-            </HBox>
+            <GridPane hgap="8" vgap="8">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="65" />
+                    <ColumnConstraints percentWidth="35" />
+                </columnConstraints>
+                <rowConstraints>
+                    <RowConstraints />
+                    <RowConstraints />
+                </rowConstraints>
+                <PasswordField fx:id="passwordField" promptText="Mật khẩu đăng ký" GridPane.rowIndex="0" GridPane.columnIndex="0" />
+                <Button fx:id="registerButton" text="Register" onAction="#registerPeer" styleClass="primary-button"
+                        maxWidth="Infinity" GridPane.rowIndex="0" GridPane.columnIndex="1" />
+                <TextField fx:id="existingPeerIdField" promptText="ID cũ (XXX-XXX-XXX)" GridPane.rowIndex="1" GridPane.columnIndex="0" />
+                <Button fx:id="useExistingButton" text="Use ID" onAction="#connectExistingId" styleClass="ghost-button"
+                        maxWidth="Infinity" GridPane.rowIndex="1" GridPane.columnIndex="1" />
+            </GridPane>
             <Label fx:id="myPeerIdLabel" text="Peer ID: not registered" />
             <Label fx:id="identityStatusLabel" textFill="#4f6f8f" />
         </VBox>
     </TitledPane>
 
-    <TitledPane text="Connect to Peer" expanded="true">
+    <TitledPane text="Kết nối P2P (tailnet)" expanded="true">
         <VBox spacing="8">
             <padding>
                 <Insets topRightBottomLeft="10" />
             </padding>
-            <TextField fx:id="targetPeerIdField" promptText="Target peer (XXX-XXX-XXX)" />
-            <PasswordField fx:id="connectPasswordField" promptText="Password" />
+            <TextField fx:id="targetPeerIdField" promptText="Peer đích (XXX-XXX-XXX)" />
+            <PasswordField fx:id="connectPasswordField" promptText="Mật khẩu peer đích" />
             <HBox spacing="8" alignment="CENTER_LEFT">
                 <Label text="Quality" minWidth="80" />
                 <ChoiceBox fx:id="qualityChoiceBox" />
                 <Region HBox.hgrow="ALWAYS" />
             </HBox>
             <HBox spacing="8">
-                <Button fx:id="connectButton" text="Connect" onAction="#connectToPeer" />
-                <Button fx:id="disconnectButton" text="Disconnect" onAction="#disconnectFromPeer" disable="true" />
+                <Button fx:id="connectButton" text="Connect" onAction="#connectToPeer" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                <Button fx:id="disconnectButton" text="Disconnect" onAction="#disconnectFromPeer" disable="true" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
             </HBox>
             <Label fx:id="connectionModeLabel" text="Mode: Idle" />
         </VBox>

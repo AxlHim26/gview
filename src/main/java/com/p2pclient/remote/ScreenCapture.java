@@ -62,22 +62,6 @@ public class ScreenCapture {
     }
 
     /**
-     * Capture screen optimized for relay mode using the active quality profile unless overridden.
-     */
-    public byte[] captureScreenForRelay() {
-        return captureScreenForRelay(null);
-    }
-
-    public byte[] captureScreenForRelay(ScreenQualityProfile relayProfile) {
-        ScreenQualityProfile effective = relayProfile != null ? relayProfile : this.profile;
-        // Use profile quality directly - profiles are already tuned for relay use
-        // No quality bump needed as profiles are designed for WAN constraints
-        ScreenCaptureResult result = captureFrameInternal(
-            effective.getJpegQuality(), effective.getMaxWidth(), effective.getMaxHeight());
-        return result != null ? result.getJpegBytes() : null;
-    }
-
-    /**
      * Capture a screen frame and return the processed image and JPEG bytes.
      * The processed image is already scaled according to the profile/overrides.
      */
@@ -135,12 +119,8 @@ public class ScreenCapture {
             }
 
             int count = CAPTURE_COUNTER.incrementAndGet();
-            boolean isRelay = overrideMaxWidth != null || overrideMaxHeight != null;
-            String mode = isRelay ? "RELAY" : "P2P";
-            
-            // Calculate base64 length for relay mode logging
-            int base64Len = isRelay ? (int) Math.ceil(jpegBytes.length * 4.0 / 3.0) : 0;
-            
+            String mode = "P2P";
+
             logger.debug(
                 "ScreenCapture [{}]: original={}x{}, scaled={}x{}, scaleFactor={}, jpegSize={} bytes, quality={}",
                 mode,
@@ -153,12 +133,7 @@ public class ScreenCapture {
                 quality
             );
             if (count % 10 == 0) {
-                if (isRelay) {
-                    logger.info("ScreenCapture [RELAY] stats: frame #{}, jpegSize={} bytes, base64Len≈{}, relayResolution={}x{}",
-                        count, jpegBytes.length, base64Len, processedImage.getWidth(), processedImage.getHeight());
-                } else {
-                    logger.info("ScreenCapture [P2P] stats: frame #{}, jpegSize={} bytes", count, jpegBytes.length);
-                }
+                logger.info("ScreenCapture [P2P] stats: frame #{}, jpegSize={} bytes", count, jpegBytes.length);
             }
 
             return new ScreenCaptureResult(

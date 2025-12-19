@@ -36,3 +36,7 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Tailscale secrets ###
+.env
+src/main/resources/config.properties.bak

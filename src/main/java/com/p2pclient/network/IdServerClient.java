@@ -2,7 +2,6 @@ package com.p2pclient.network;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.p2pclient.model.PeerInfo;
-import com.p2pclient.model.RelayMessage;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -51,8 +50,6 @@ public class IdServerClient {
     private int currentPort;
     private boolean shouldMaintainConnection = false;
     private ConnectionListener connectionListener;
-    private StompSession.Subscription relaySubscription;
-    private Consumer<RelayMessage> relayListener;
 
     public interface ConnectionListener {
         void onConnectionRequest(String sourcePeerId, String ipAddress, Integer port);
@@ -252,7 +249,7 @@ public class IdServerClient {
                 StandardWebSocketClient webSocketClient = new StandardWebSocketClient(container);
                 stompClient = new WebSocketStompClient(webSocketClient);
                 
-                // Allow larger relay frames (up to 512 KB)
+                // Allow larger STOMP frames (up to 512 KB)
                 stompClient.setInboundMessageSizeLimit(512 * 1024);
                 try {
                     stompClient.getClass()
@@ -272,8 +269,7 @@ public class IdServerClient {
                 // CRITICAL: Set long heartbeat to keep connection alive (requires TaskScheduler)
                 stompClient.setDefaultHeartbeat(new long[]{30000, 30000}); // 30 seconds
                 
-                // CRITICAL FIX: Use MappingJackson2MessageConverter for RelayMessage objects
-                // This allows sending RelayMessage objects directly, auto-converted to JSON
+                // CRITICAL FIX: Use MappingJackson2MessageConverter for JSON payloads
                 MappingJackson2MessageConverter messageConverter = new MappingJackson2MessageConverter();
                 messageConverter.setObjectMapper(objectMapper);
                 stompClient.setMessageConverter(messageConverter);
@@ -505,108 +501,6 @@ public class IdServerClient {
         reconnectWebSocket();
     }
 
-    /**
-     * Subscribe to relay topic for this peer
-     * CRITICAL: Handles both RelayMessage objects and JSON strings
-     */
-    public void subscribeToRelay(String peerId, Consumer<RelayMessage> listener) {
-        if (stompSession == null || !stompSession.isConnected()) {
-            logger.warn("Cannot subscribe to relay: STOMP session not connected");
-            return;
-        }
-        if (relaySubscription != null) {
-            relaySubscription.unsubscribe();
-        }
-        this.relayListener = listener;
-        String destination = "/topic/relay/" + peerId;
-        logger.info("subscribeToRelay: destination={}, listenerSet={}, wsConnected={}", destination, listener != null, stompSession.isConnected());
-        relaySubscription = stompSession.subscribe(destination, new StompFrameHandler() {
-            @Override
-            public java.lang.reflect.Type getPayloadType(StompHeaders headers) {
-                // Try RelayMessage first, fallback to String if needed
-                return RelayMessage.class;
-            }
-
-            @Override
-            public void handleFrame(StompHeaders headers, Object payload) {
-                logger.info("Relay frame received: destination={}, payloadType={}, payloadLength={}", 
-                    headers != null ? headers.getDestination() : "unknown",
-                    payload != null ? payload.getClass().getSimpleName() : "null",
-                    payload instanceof String ? ((String) payload).length() : (payload instanceof RelayMessage ? "object" : "N/A"));
-                
-                if (relayListener == null) {
-                    logger.warn("Relay listener is null! Cannot process message");
-                    return;
-                }
-                try {
-                    RelayMessage message = null;
-                    
-                    // Handle both RelayMessage object and JSON string
-                    if (payload instanceof RelayMessage) {
-                        // Already deserialized by MappingJackson2MessageConverter
-                        message = (RelayMessage) payload;
-                        logger.info("Received RelayMessage object: type={}, from={}, to={}, dataSize={}", 
-                            message.getDataType(), 
-                            message.getSourcePeerId(), 
-                            message.getTargetPeerId(),
-                            message.getBase64Data() != null ? message.getBase64Data().length() : 0);
-                    } else if (payload instanceof String) {
-                        // Manual JSON deserialization (fallback)
-                        String jsonPayload = (String) payload;
-                        logger.info("Received JSON string, deserializing: {} bytes", jsonPayload.length());
-                        message = objectMapper.readValue(jsonPayload, RelayMessage.class);
-                        logger.info("Deserialized RelayMessage: type={}, from={}, to={}, dataSize={}", 
-                            message.getDataType(), 
-                            message.getSourcePeerId(), 
-                            message.getTargetPeerId(),
-                            message.getBase64Data() != null ? message.getBase64Data().length() : 0);
-                    } else {
-                        logger.error("Unexpected payload type: {} - Cannot process", 
-                            payload != null ? payload.getClass() : "null");
-                        return;
-                    }
-                    
-                    logger.info("Calling relay listener for message type: {}", message.getDataType());
-                    relayListener.accept(message);
-                    logger.debug("Relay listener called successfully");
-                } catch (Exception e) {
-                    logger.error("Failed to handle relay message: {}", e.getMessage(), e);
-                    e.printStackTrace();
-                }
-            }
-        });
-        logger.info("Subscribed to relay topic {} - WebSocket connected: {}", 
-            destination, stompSession.isConnected());
-    }
-
-    public void unsubscribeRelay() {
-        if (relaySubscription != null) {
-            relaySubscription.unsubscribe();
-            relaySubscription = null;
-            logger.info("Unsubscribed from relay topic");
-        }
-        relayListener = null;
-    }
-
-    public void sendRelayData(RelayMessage message) {
-        if (stompSession == null || !stompSession.isConnected()) {
-            logger.warn("sendRelayData dropped: STOMP session not connected (dataType={}, target={})",
-                message != null ? message.getDataType() : "null",
-                message != null ? message.getTargetPeerId() : "null");
-            return;
-        }
-        try {
-            // CRITICAL FIX: Send RelayMessage object directly - MappingJackson2MessageConverter will auto-convert to JSON
-            if (message != null && "SCREEN".equals(message.getDataType())) {
-                logger.info("sendRelayData SCREEN: target={}, base64Len={}", message.getTargetPeerId(),
-                    message.getBase64Data() != null ? message.getBase64Data().length() : -1);
-            }
-            stompSession.send("/app/relay.data", message);
-            logger.trace("Relay message sent to {} (as object, auto-converted to JSON)", message.getTargetPeerId());
-        } catch (Exception e) {
-            logger.error("Failed to send relay data", e);
-        }
-    }
 
     public void setConnectionListener(ConnectionListener listener) {
         this.connectionListener = listener;

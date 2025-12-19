@@ -25,7 +25,6 @@
             <padding>
                 <Insets topRightBottomLeft="10" />
             </padding>
-            <CheckBox fx:id="logRelayCheckBox" text="Log relay traffic" />
             <CheckBox fx:id="logUiEventsCheckBox" text="Verbose UI logs" />
         </VBox>
     </TitledPane>

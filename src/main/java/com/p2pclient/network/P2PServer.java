@@ -1,10 +1,6 @@
 package com.p2pclient.network;
 
 import com.p2pclient.model.P2PMessage;
-import com.p2pclient.remote.ScreenCapture;
-import com.p2pclient.remote.ScreenCaptureResult;
-import com.p2pclient.remote.ScreenDeltaCalculator;
-import com.p2pclient.remote.ScreenQualityProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,15 +9,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.lang.management.ManagementFactory;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import com.sun.management.OperatingSystemMXBean;
 
 public class P2PServer {
     private static final Logger logger = LoggerFactory.getLogger(P2PServer.class);
@@ -31,8 +22,6 @@ public class P2PServer {
     private final ExecutorService executorService;
     private final ConcurrentHashMap<String, PeerConnectionHandler> connections;
     private final AtomicBoolean running;
-    private ScreenCapture screenCapture;
-    private boolean isController; // true if this peer is controlling the remote screen
 
     public interface MessageListener {
         void onMessageReceived(P2PMessage message, String peerAddress);
@@ -47,21 +36,10 @@ public class P2PServer {
         this.executorService = Executors.newCachedThreadPool();
         this.connections = new ConcurrentHashMap<>();
         this.running = new AtomicBoolean(false);
-        this.isController = false;
     }
 
     public void setMessageListener(MessageListener listener) {
         this.messageListener = listener;
-    }
-
-    public void setScreenCapture(ScreenCapture screenCapture) {
-        this.screenCapture = screenCapture;
-        logger.info("ScreenCapture set for P2PServer");
-    }
-
-    public void setController(boolean isController) {
-        this.isController = isController;
-        logger.info("P2PServer role set to: {}", isController ? "CONTROLLER" : "CONTROLLED");
     }
 
     /**
@@ -87,21 +65,12 @@ public class P2PServer {
                                         ":" + clientSocket.getPort();
                     
                     logger.info("Incoming P2P connection from: {}", peerAddress);
-                    logger.info("This peer is CONTROLLED - will send screen to {}", peerAddress);
                     
                     PeerConnectionHandler handler = new PeerConnectionHandler(
                         clientSocket, peerAddress, this);
                     connections.put(peerAddress, handler);
                     
                     executorService.submit(handler);
-                    
-                    // CRITICAL: When controlled peer receives connection, start screen capture
-                    if (!isController && screenCapture != null) {
-                        logger.info("Starting screen capture for controlled peer");
-                        startScreenCaptureLoop(handler);
-                    } else if (!isController && screenCapture == null) {
-                        logger.error("ScreenCapture is null! Cannot send screen to peer");
-                    }
                     
                     if (messageListener != null) {
                         messageListener.onPeerConnected(peerAddress);
@@ -115,163 +84,6 @@ public class P2PServer {
         });
     }
 
-    /**
-     * Start screen capture loop to send screens to connected peer
-     */
-    private void startScreenCaptureLoop(PeerConnectionHandler handler) {
-        executorService.submit(() -> {
-            try {
-                ScreenQualityProfile profile = screenCapture.getProfile();
-                ScreenDeltaCalculator deltaCalculator = new ScreenDeltaCalculator(screenCapture);
-                logger.info("Screen capture loop started with profile {}", profile);
-                Deque<Integer> frameWindow = new ArrayDeque<>();
-                long windowSum = 0;
-                final int windowSize = 20;
-                double maxBytesPerSec = profile.getTargetBitrateBitsPerSec() / 8.0;
-                boolean lowResourceMode = false;
-                int lowResourceScore = 0;
-                int frameCount = 0;
-                int deltaFrames = 0;
-                int fullFrames = 0;
-                
-                while (running.get() && handler.isRunning() && !connections.isEmpty()) {
-                    try {
-                        long startTime = System.currentTimeMillis();
-                        long frameIntervalMillis = Math.max(1L, Math.round(1000.0 / Math.max(1, profile.getTargetFps())));
-
-                        float qualityOverride = profile.getJpegQuality();
-                        int maxWidth = profile.getMaxWidth();
-                        int maxHeight = profile.getMaxHeight();
-                        int profileFps = profile.getTargetFps();
-                        if (lowResourceMode) {
-                            qualityOverride = Math.max(0.20f, profile.getJpegQuality() - 0.10f);
-                            maxWidth = (int) Math.round(profile.getMaxWidth() * 0.75);
-                            maxHeight = (int) Math.round(profile.getMaxHeight() * 0.75);
-                            profileFps = Math.max(5, profileFps - 8);
-                        }
-
-                        ScreenCaptureResult capture = screenCapture.captureFrameWithImage(qualityOverride, maxWidth, maxHeight);
-                        if (capture == null || capture.getJpegBytes() == null) {
-                            logger.warn("Screen capture returned null data");
-                            Thread.sleep(frameIntervalMillis);
-                            continue;
-                        }
-
-                        ScreenDeltaCalculator.DeltaFrame frame = deltaCalculator.buildFrame(capture, qualityOverride);
-                        if (frame == null) {
-                            // No visual change - still sleep to avoid busy loop
-                            Thread.sleep(Math.max(5L, frameIntervalMillis));
-                            continue;
-                        }
-
-                        boolean isDelta = frame.isDelta();
-                        if (isDelta) {
-                            deltaFrames++;
-                        } else {
-                            fullFrames++;
-                        }
-                        frameCount++;
-
-                        byte[] payload = frame.getPayload();
-                        frameWindow.addLast(payload.length);
-                        windowSum += payload.length;
-                        if (frameWindow.size() > windowSize) {
-                            windowSum -= frameWindow.removeFirst();
-                        }
-
-                        double avgFrameBytes = frameWindow.isEmpty()
-                            ? payload.length
-                            : (double) windowSum / frameWindow.size();
-                        double fpsMax = maxBytesPerSec / Math.max(1.0, avgFrameBytes);
-                        double targetFps = Math.min(profileFps, fpsMax);
-                        targetFps = Math.max(1.0, targetFps);
-                        frameIntervalMillis = Math.max(1L, (long) (1000.0 / targetFps));
-
-                        double estimatedBitrateKbps = avgFrameBytes * targetFps * 8.0 / 1000.0;
-                        double cpuLoad = getProcessCpuLoad();
-                        long encodeMs = frame.getEncodeMillis();
-
-                        boolean cpuStressed = cpuLoad >= 0 && cpuLoad > 0.85;
-                        boolean encodeStressed = encodeMs > frameIntervalMillis * 0.8;
-                        boolean bitrateStressed = estimatedBitrateKbps > (profile.getTargetBitrateBitsPerSec() / 1000.0) * 1.15;
-
-                        if (cpuStressed || encodeStressed || bitrateStressed) {
-                            lowResourceScore = Math.min(lowResourceScore + 1, 6);
-                        } else if (lowResourceScore > 0) {
-                            lowResourceScore--;
-                        }
-                        if (!lowResourceMode && lowResourceScore >= 3) {
-                            lowResourceMode = true;
-                            logger.warn("Entering low-resource mode: cpuLoad={}, encodeMs={}, estBitrate={}kbps", 
-                                String.format("%.2f", cpuLoad), encodeMs, Math.round(estimatedBitrateKbps));
-                        } else if (lowResourceMode && lowResourceScore == 0) {
-                            lowResourceMode = false;
-                            logger.info("Exiting low-resource mode after stable window");
-                        }
-
-                        P2PMessage message = new P2PMessage(P2PMessage.TYPE_SCREEN, payload);
-                        message.setFrameSeq(frame.getFrameSeq());
-                        message.setFrameWidth(frame.getFullWidth());
-                        message.setFrameHeight(frame.getFullHeight());
-                        message.setDeltaFrame(isDelta);
-                        message.setRegionX(frame.getRegionX());
-                        message.setRegionY(frame.getRegionY());
-                        message.setRegionWidth(frame.getRegionWidth());
-                        message.setRegionHeight(frame.getRegionHeight());
-                        message.setEncodeTimeMs(frame.getEncodeMillis());
-                        message.setSenderCpuLoad(cpuLoad);
-                        message.setLowResourceMode(lowResourceMode);
-                        message.setTargetFpsHint((int) Math.round(targetFps));
-                        message.setTargetBitrateKbps(profile.getTargetBitrateBitsPerSec() / 1000);
-                        message.setEstimatedBitrateKbps((int) Math.round(estimatedBitrateKbps));
-                        message.setKeyFrame(!isDelta);
-                        message.setTimestamp(frame.getCaptureTimestamp());
-
-                        handler.sendMessage(message);
-
-                        if (frameCount % 30 == 0) {
-                            logger.info("Sent {} frames (delta={} full={}). Last payload: {} bytes | avg={} bytes | fps≈{} | bitrate≈{}kbps | lowResource={}",
-                                frameCount, deltaFrames, fullFrames, payload.length,
-                                Math.round(avgFrameBytes), String.format("%.1f", targetFps),
-                                Math.round(estimatedBitrateKbps), lowResourceMode);
-                        } else {
-                            logger.debug("Sent screen frame {} (delta={}): {} bytes", frameCount, isDelta, payload.length);
-                        }
-
-                        long elapsed = System.currentTimeMillis() - startTime;
-                        long sleepTime = frameIntervalMillis - elapsed;
-                        if (sleepTime > 0) {
-                            Thread.sleep(sleepTime);
-                        }
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        logger.info("Screen capture loop interrupted");
-                        break;
-                    } catch (Exception e) {
-                        logger.error("Error in screen capture loop", e);
-                        // Continue trying
-                    }
-                }
-                logger.info("Screen capture loop stopped. Total frames sent: {} (delta={}, full={})",
-                    frameCount, deltaFrames, fullFrames);
-            } catch (Exception e) {
-                logger.error("Screen capture loop error", e);
-            }
-        });
-    }
-
-    private double getProcessCpuLoad() {
-        try {
-            OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
-            if (osBean != null) {
-                double load = osBean.getProcessCpuLoad();
-                return load < 0 ? -1.0d : load;
-            }
-        } catch (Exception e) {
-            logger.debug("Unable to read process CPU load: {}", e.getMessage());
-        }
-        return -1.0d;
-    }
 
     /**
      * Broadcast message to all connected peers
@@ -316,6 +128,13 @@ public class P2PServer {
      */
     public int getConnectionCount() {
         return connections.size();
+    }
+
+    /**
+     * Check if a specific peer connection is active
+     */
+    public boolean hasConnection(String peerAddress) {
+        return connections.containsKey(peerAddress);
     }
 
     /**
