@@ -19,8 +19,8 @@
         </HBox>
     </top>
     <center>
-        <VBox spacing="10">
-            <StackPane fx:id="remoteSurface" styleClass="remote-surface" VBox.vgrow="ALWAYS">
+        <VBox spacing="4">
+            <StackPane fx:id="remoteSurface" styleClass="remote-surface" VBox.vgrow="ALWAYS" maxWidth="Infinity" maxHeight="Infinity">
                 <Canvas fx:id="remoteCanvas" width="900" height="520" />
                 <Label fx:id="overlayLabel" text="Waiting for session" styleClass="overlay" />
             </StackPane>

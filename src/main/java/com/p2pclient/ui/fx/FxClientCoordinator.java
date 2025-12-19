@@ -402,7 +402,7 @@ public class FxClientCoordinator {
             @Override
             public void onPeerConnected(String peerAddress) {
                 activePeerAddress = peerAddress;
-                if (!isController && screenCapture != null) {
+                if (screenCapture != null) {
                     startScreenStreaming(peerAddress);
                 }
                 Platform.runLater(() -> sessionsController.appendLog("Peer connected: " + peerAddress));

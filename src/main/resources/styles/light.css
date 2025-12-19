@@ -59,9 +59,10 @@
 }
 
 .remote-surface {
-    -fx-background-color: radial-gradient(center 50% 50%, radius 70%, #0b1a29, #0e1f35);
-    -fx-background-radius: 12;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 22, 0.15, 0, 8);
+    -fx-background-color: #0b1a29;
+    -fx-background-radius: 0;
+    -fx-effect: none;
+    -fx-padding: 0;
 }
 
 .overlay {

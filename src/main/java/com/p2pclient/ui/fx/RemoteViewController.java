@@ -208,13 +208,8 @@ public class RemoteViewController {
         }
         double canvasW = remoteCanvas.getWidth();
         double canvasH = remoteCanvas.getHeight();
-        double scale = Math.min(canvasW / snapshot.width(), canvasH / snapshot.height());
-        double drawW = snapshot.width() * scale;
-        double drawH = snapshot.height() * scale;
-        double offsetX = (canvasW - drawW) / 2;
-        double offsetY = (canvasH - drawH) / 2;
-
-        gc.drawImage(snapshot.image(), offsetX, offsetY, drawW, drawH);
+        // Stretch to fill available canvas (no letterbox)
+        gc.drawImage(snapshot.image(), 0, 0, canvasW, canvasH);
         overlayLabel.setVisible(false);
     }
 
@@ -299,13 +294,10 @@ public class RemoteViewController {
         }
         double canvasW = remoteCanvas.getWidth();
         double canvasH = remoteCanvas.getHeight();
-        double scale = Math.min(canvasW / snapshot.width(), canvasH / snapshot.height());
-        double drawW = snapshot.width() * scale;
-        double drawH = snapshot.height() * scale;
-        double offsetX = (canvasW - drawW) / 2;
-        double offsetY = (canvasH - drawH) / 2;
-        double imgX = (x - offsetX) / scale;
-        double imgY = (y - offsetY) / scale;
+        double scaleX = canvasW / snapshot.width();
+        double scaleY = canvasH / snapshot.height();
+        double imgX = x / scaleX;
+        double imgY = y / scaleY;
         imgX = Math.max(0, Math.min(snapshot.width() - 1, imgX));
         imgY = Math.max(0, Math.min(snapshot.height() - 1, imgY));
         if (Double.isNaN(imgX) || Double.isNaN(imgY)) {
