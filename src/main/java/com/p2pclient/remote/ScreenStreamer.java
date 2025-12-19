@@ -70,6 +70,7 @@ public class ScreenStreamer implements Runnable {
             int fullFrames = 0;
             boolean lowResourceMode = false;
             int lowResourceScore = 0;
+            long lastKeyframeForceTs = System.currentTimeMillis();
 
             while (running.get() && sessionAlive.get()) {
                 ScreenQualityProfile currentProfile = profile != null ? profile : screenCapture.getProfile();
@@ -92,6 +93,12 @@ public class ScreenStreamer implements Runnable {
                     logger.warn("Screen capture returned null data");
                     sleep(frameIntervalMillis);
                     continue;
+                }
+
+                // Force a keyframe if too much time passed (avoid drift) even if delta calculator didn't request yet
+                if (System.currentTimeMillis() - lastKeyframeForceTs > 3000) {
+                    deltaCalculator = new ScreenDeltaCalculator(screenCapture); // reset delta state to force full frame
+                    lastKeyframeForceTs = System.currentTimeMillis();
                 }
 
                 ScreenDeltaCalculator.DeltaFrame frame = deltaCalculator.buildFrame(capture, qualityOverride);
@@ -164,18 +171,24 @@ public class ScreenStreamer implements Runnable {
                 message.setKeyFrame(!isDelta);
                 message.setTimestamp(frame.getCaptureTimestamp());
 
+                long sendStart = System.nanoTime();
                 try {
                     sender.accept(message);
                 } catch (Exception e) {
                     logger.error("Failed to send screen frame to {}", peerLabel, e);
                     break;
                 }
+                long sendMs = (System.nanoTime() - sendStart) / 1_000_000L;
+                boolean sendStressed = sendMs > frameIntervalMillis * 0.8;
+                if (sendStressed) {
+                    lowResourceScore = Math.min(lowResourceScore + 1, 6);
+                }
 
                 if (frameCount % 30 == 0) {
-                    logger.info("Sent {} frames to {} (delta={} full={}). Last payload: {} bytes | avg={} bytes | fps≈{} | bitrate≈{}kbps | lowResource={}",
+                    logger.info("Sent {} frames to {} (delta={} full={}). Last payload: {} bytes | avg={} bytes | fps≈{} | bitrate≈{}kbps | send={}ms | lowResource={}",
                         frameCount, peerLabel, deltaFrames, fullFrames, payload.length,
                         Math.round(avgFrameBytes), String.format("%.1f", targetFps),
-                        Math.round(estimatedBitrateKbps), lowResourceMode);
+                        Math.round(estimatedBitrateKbps), sendMs, lowResourceMode);
                 } else {
                     logger.debug("Sent screen frame {} to {} (delta={}): {} bytes",
                         frameCount, peerLabel, isDelta, payload.length);
@@ -185,6 +198,9 @@ public class ScreenStreamer implements Runnable {
                 long sleepTime = frameIntervalMillis - elapsed;
                 if (sleepTime > 0) {
                     sleep(sleepTime);
+                } else {
+                    // We're behind schedule; increment stress and skip sleeping to catch up
+                    lowResourceScore = Math.min(lowResourceScore + 1, 6);
                 }
             }
 

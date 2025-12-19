@@ -32,8 +32,8 @@ public enum ScreenQualityProfile {
      * LAN_HIGH: For local network only. High quality, high FPS.
      * Will auto-downgrade to WAN_SAFE if network cannot sustain it.
      */
-    // Ultra/highest profile for LAN or fast tailnet. 4K@30fps, higher JPEG quality and bitrate.
-    LAN_HIGH(3840, 2160, 0.75f, 30, 28_000_000);
+    // High quality for fast LAN/tailnet. 2K (1440p) at 30fps with high JPEG quality.
+    LAN_HIGH(2560, 1440, 0.70f, 30, 20_000_000);
 
     private static final Logger logger = LoggerFactory.getLogger(ScreenQualityProfile.class);
 

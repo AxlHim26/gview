@@ -257,6 +257,7 @@ public class P2PServer {
             running.set(false);
             try {
                 if (in != null) in.close();
+                // Avoid flushing/IO on close if socket already closed
                 if (out != null) out.close();
                 if (socket != null && !socket.isClosed()) {
                     socket.close();
