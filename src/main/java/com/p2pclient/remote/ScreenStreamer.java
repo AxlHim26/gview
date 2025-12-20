@@ -182,6 +182,9 @@ public class ScreenStreamer implements Runnable {
                 boolean sendStressed = sendMs > frameIntervalMillis * 0.8;
                 if (sendStressed) {
                     lowResourceScore = Math.min(lowResourceScore + 1, 6);
+                    // Drop next frame to keep input responsive when send is congested
+                    sleep(Math.max(2L, frameIntervalMillis / 2));
+                    continue;
                 }
 
                 if (frameCount % 30 == 0) {

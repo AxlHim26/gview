@@ -65,6 +65,8 @@ public class P2PServer {
                                         ":" + clientSocket.getPort();
                     
                     logger.info("Incoming P2P connection from: {}", peerAddress);
+                    clientSocket.setTcpNoDelay(true);
+                    clientSocket.setKeepAlive(true);
                     
                     PeerConnectionHandler handler = new PeerConnectionHandler(
                         clientSocket, peerAddress, this);

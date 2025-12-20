@@ -68,7 +68,7 @@ public class InputForwarder {
         int scaledX = (int) Math.round(normX * NORMALIZATION_SCALE);
         int scaledY = (int) Math.round(normY * NORMALIZATION_SCALE);
         
-        logger.info("MOUSE OUT MOVE: raw=({},{}), norm=({},{}) imgSize={}x{}, fallbackScreen={}x{}",
+        logger.debug("MOUSE OUT MOVE: raw=({},{}), norm=({},{}) imgSize={}x{}, fallbackScreen={}x{}",
             imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
             imgW, imgH, realScreenSize.width, realScreenSize.height);
         
@@ -117,7 +117,7 @@ public class InputForwarder {
         
         String action = pressed ? "PRESS" : "RELEASE";
         String buttonName = getButtonName(button);
-        logger.info("MOUSE OUT CLICK: raw=({},{}), norm=({},{}) imgSize={}x{}, button={}, action={}",
+        logger.debug("MOUSE OUT CLICK: raw=({},{}), norm=({},{}) imgSize={}x{}, button={}, action={}",
             imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
             imgW, imgH, buttonName, action);
         
@@ -166,7 +166,7 @@ public class InputForwarder {
             int targetX = (int) Math.round(normX * realScreenSize.width);
             int targetY = (int) Math.round(normY * realScreenSize.height);
             
-            logger.info("MOUSE IN MOVE: norm=({},{}) -> target=({},{}) screen={}x{}",
+            logger.debug("MOUSE IN MOVE: norm=({},{}) -> target=({},{}) screen={}x{}",
                 String.format("%.4f", normX), String.format("%.4f", normY), targetX, targetY, realScreenSize.width, realScreenSize.height);
             
             robot.mouseMove(targetX, targetY);
@@ -201,7 +201,7 @@ public class InputForwarder {
             String buttonName = getButtonName(button);
             String action = message.isMousePressed() ? "PRESS" : "RELEASE";
             
-            logger.info("MOUSE IN CLICK: button={}, action={}, target=({},{}), screen={}x{}",
+            logger.debug("MOUSE IN CLICK: button={}, action={}, target=({},{}), screen={}x{}",
                 buttonName, action, targetX, targetY, realScreenSize.width, realScreenSize.height);
             
             // Always move to target first
@@ -297,4 +297,3 @@ public class InputForwarder {
         }
     }
 }
-

@@ -51,49 +51,63 @@ public class P2PClient {
             return true;
         }
 
-        try {
-            logger.info("Connecting to peer at {}:{}", host, port);
-            logger.info("This peer is CONTROLLER - will receive screen from remote peer");
-            
-            socket = new Socket();
-            socket.connect(new InetSocketAddress(host, port), 5000);
-            // High-quality (4K) streaming can have long encode gaps; disable read timeout
-            socket.setSoTimeout(0); // 0 = infinite
-            socket.setKeepAlive(true);
-            
-            // CRITICAL: Initialize streams in correct order
-            // ObjectOutputStream must be created first to send header
-            out = new ObjectOutputStream(socket.getOutputStream());
-            out.flush(); // Flush header immediately
-            logger.debug("ObjectOutputStream created and flushed");
-            
-            in = new ObjectInputStream(socket.getInputStream());
-            logger.debug("ObjectInputStream created");
-            
-            connected.set(true);
-            logger.info("Connected to peer at {}:{}", host, port);
-            
-            // Start receiver thread to receive screen data
-            receiverThread = new Thread(this::receiveMessages);
-            receiverThread.setDaemon(true);
-            receiverThread.setName("P2PClient-Receiver");
-            receiverThread.start();
-            
-            logger.info("Screen receiver thread started - waiting for screen data...");
-            
-            if (messageListener != null) {
-                messageListener.onConnected();
+        int attempts = 3;
+        int connectTimeoutMs = 8000; // allow slower connects over tailnet but fail fast-ish
+        for (int i = 1; i <= attempts; i++) {
+            try {
+                logger.info("Connecting to peer at {}:{} (attempt {}/{})", host, port, i, attempts);
+                logger.info("This peer is CONTROLLER - will receive screen from remote peer");
+
+                socket = new Socket();
+                socket.setTcpNoDelay(true);
+                socket.setKeepAlive(true);
+                socket.connect(new InetSocketAddress(host, port), connectTimeoutMs);
+                // High-quality streaming can have long encode gaps; disable read timeout
+                socket.setSoTimeout(0); // 0 = infinite
+
+                // CRITICAL: Initialize streams in correct order
+                // ObjectOutputStream must be created first to send header
+                out = new ObjectOutputStream(socket.getOutputStream());
+                out.flush(); // Flush header immediately
+                logger.debug("ObjectOutputStream created and flushed");
+
+                in = new ObjectInputStream(socket.getInputStream());
+                logger.debug("ObjectInputStream created");
+
+                connected.set(true);
+                logger.info("Connected to peer at {}:{}", host, port);
+
+                // Start receiver thread to receive screen data
+                receiverThread = new Thread(this::receiveMessages);
+                receiverThread.setDaemon(true);
+                receiverThread.setName("P2PClient-Receiver");
+                receiverThread.start();
+
+                logger.info("Screen receiver thread started - waiting for screen data...");
+
+                if (messageListener != null) {
+                    messageListener.onConnected();
+                }
+
+                return true;
+            } catch (IOException e) {
+                logger.error("Failed to connect attempt {}/{} to {}:{} -> {}", i, attempts, host, port, e.getMessage());
+                closeQuietly();
+                connected.set(false);
+                if (i == attempts && messageListener != null) {
+                    messageListener.onError("Connection failed: " + e.getMessage());
+                }
+                if (i < attempts) {
+                    try {
+                        Thread.sleep(800L);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
             }
-            
-            return true;
-        } catch (IOException e) {
-            logger.error("Failed to connect to peer", e);
-            connected.set(false);
-            if (messageListener != null) {
-                messageListener.onError("Connection failed: " + e.getMessage());
-            }
-            return false;
         }
+        return false;
     }
 
     /**
@@ -211,6 +225,20 @@ public class P2PClient {
         if (messageListener != null) {
             messageListener.onDisconnected();
         }
+    }
+
+    private void closeQuietly() {
+        try {
+            if (in != null) in.close();
+        } catch (IOException ignored) {}
+        try {
+            if (out != null) out.close();
+        } catch (IOException ignored) {}
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        } catch (IOException ignored) {}
     }
 
     public boolean isConnected() {
