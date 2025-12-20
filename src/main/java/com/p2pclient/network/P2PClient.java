@@ -178,6 +178,9 @@ public class P2PClient {
             try {
                 out.writeObject(message);
                 out.flush();
+                // CRITICAL: Reset to prevent memory leak when sending same object types repeatedly
+                // Without this, ObjectOutputStream caches references and causes OutOfMemoryError
+                out.reset();
             } catch (IOException e) {
                 logger.error("Error sending message", e);
                 disconnect();

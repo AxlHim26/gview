@@ -247,6 +247,8 @@ public class P2PServer {
                     try {
                         out.writeObject(message);
                         out.flush();
+                        // CRITICAL: Reset to prevent memory leak when sending frames repeatedly
+                        out.reset();
                     } catch (IOException e) {
                         logger.error("Error sending message to {}", peerAddress, e);
                         close();
