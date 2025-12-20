@@ -17,8 +17,8 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd /
-            cd gview
-            git fetch origin
-            git pull origin main
-            ./mvnw -DskipTests javafx:run
+              cd /gview
+              git fetch origin
+              git pull origin main
+              ./mvnw -DskipTests clean javafx:run > app.log 2>&1 &
+
