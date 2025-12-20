@@ -10,15 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: build app
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: SSH via Tailscale
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-              cd /gview
-              git fetch origin
-              git pull origin main
-              ./mvnw -DskipTests clean javafx:run > app.log 2>&1 &
-
+                cd /gview
+                git fetch origin
+                git checkout gviewer
+                git pull origin gviewer
+                nohup ./mvnw -DskipTests clean javafx:run > app.log 2>&1 &
