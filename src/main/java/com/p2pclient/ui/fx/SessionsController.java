@@ -8,6 +8,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.paint.Color;
 
 import java.time.LocalDateTime;
@@ -37,6 +39,8 @@ public class SessionsController {
     @FXML
     private Label myPeerIdLabel;
     @FXML
+    private Button copyPeerIdButton;
+    @FXML
     private Label identityStatusLabel;
     @FXML
     private Label connectionModeLabel;
@@ -54,6 +58,7 @@ public class SessionsController {
     private FxClientCoordinator coordinator;
     private final ObservableList<SessionRow> sessions = FXCollections.observableArrayList();
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private String currentPeerId = null;
 
     @FXML
     public void initialize() {
@@ -157,7 +162,32 @@ public class SessionsController {
     }
 
     public void setPeerId(String peerId) {
-        Platform.runLater(() -> myPeerIdLabel.setText("Peer ID: " + peerId));
+        this.currentPeerId = peerId;
+        Platform.runLater(() -> {
+            myPeerIdLabel.setText("Peer ID: " + peerId);
+            if (copyPeerIdButton != null) {
+                copyPeerIdButton.setVisible(true);
+            }
+        });
+    }
+
+    @FXML
+    public void copyPeerId() {
+        if (currentPeerId == null || currentPeerId.isBlank()) {
+            return;
+        }
+        try {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(currentPeerId);
+            clipboard.setContent(content);
+            
+            // Show feedback
+            showInlineStatus("Peer ID copied: " + currentPeerId, false);
+            appendLog("Copied peer ID to clipboard: " + currentPeerId);
+        } catch (Exception e) {
+            showInlineStatus("Failed to copy: " + e.getMessage(), true);
+        }
     }
 
     public void showInlineStatus(String message, boolean error) {

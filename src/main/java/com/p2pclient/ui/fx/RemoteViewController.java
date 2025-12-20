@@ -48,6 +48,7 @@ public class RemoteViewController {
     private FxClientCoordinator coordinator;
     private InputForwarder inputForwarder;
     private boolean controller;
+    private int lastPressedButton = 0; // Track last pressed button for proper release
     private double smoothedLatency = -1;
     private double smoothedSenderCpu = -1;
     private double lastRenderFps = 0.0d;
@@ -264,12 +265,23 @@ public class RemoteViewController {
             return;
         }
         Point2D coords = toImageCoordinates(event.getX(), event.getY());
-        int button = switch (event.getButton()) {
-            case PRIMARY -> 1;
-            case SECONDARY -> 3;
-            case MIDDLE -> 2;
-            default -> 1;
-        };
+        
+        // When pressing, get button from event and save it
+        // When releasing, use saved button (event.getButton() may be NONE/null on release)
+        int button;
+        if (pressed) {
+            button = switch (event.getButton()) {
+                case PRIMARY -> 1;
+                case SECONDARY -> 3;
+                case MIDDLE -> 2;
+                default -> 1;
+            };
+            lastPressedButton = button;
+        } else {
+            // Use last pressed button for release to ensure press/release match
+            button = lastPressedButton;
+        }
+        
         int x = coords == null ? (int) event.getX() : (int) Math.round(coords.getX());
         int y = coords == null ? (int) event.getY() : (int) Math.round(coords.getY());
         P2PMessage message = inputForwarder.createMouseClickMessage(x, y, button, pressed);

@@ -68,9 +68,11 @@ public class InputForwarder {
         int scaledX = (int) Math.round(normX * NORMALIZATION_SCALE);
         int scaledY = (int) Math.round(normY * NORMALIZATION_SCALE);
         
-        logger.debug("MOUSE OUT MOVE: raw=({},{}), norm=({},{}) imgSize={}x{}, fallbackScreen={}x{}",
-            imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
-            imgW, imgH, realScreenSize.width, realScreenSize.height);
+        if (logger.isTraceEnabled()) {
+            logger.trace("MOUSE OUT MOVE: raw=({},{}), norm=({},{}) imgSize={}x{}, fallbackScreen={}x{}",
+                imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
+                imgW, imgH, realScreenSize.width, realScreenSize.height);
+        }
         
         P2PMessage message = new P2PMessage();
         message.setType(P2PMessage.TYPE_MOUSE);
@@ -115,11 +117,13 @@ public class InputForwarder {
         int scaledX = (int) Math.round(normX * NORMALIZATION_SCALE);
         int scaledY = (int) Math.round(normY * NORMALIZATION_SCALE);
         
-        String action = pressed ? "PRESS" : "RELEASE";
-        String buttonName = getButtonName(button);
-        logger.debug("MOUSE OUT CLICK: raw=({},{}), norm=({},{}) imgSize={}x{}, button={}, action={}",
-            imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
-            imgW, imgH, buttonName, action);
+        if (logger.isTraceEnabled()) {
+            String action = pressed ? "PRESS" : "RELEASE";
+            String buttonName = getButtonName(button);
+            logger.trace("MOUSE OUT CLICK: raw=({},{}), norm=({},{}) imgSize={}x{}, button={}, action={}",
+                imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
+                imgW, imgH, buttonName, action);
+        }
         
         P2PMessage message = new P2PMessage();
         message.setType(P2PMessage.TYPE_MOUSE);
@@ -166,8 +170,10 @@ public class InputForwarder {
             int targetX = (int) Math.round(normX * realScreenSize.width);
             int targetY = (int) Math.round(normY * realScreenSize.height);
             
-            logger.debug("MOUSE IN MOVE: norm=({},{}) -> target=({},{}) screen={}x{}",
-                String.format("%.4f", normX), String.format("%.4f", normY), targetX, targetY, realScreenSize.width, realScreenSize.height);
+            if (logger.isTraceEnabled()) {
+                logger.trace("MOUSE IN MOVE: norm=({},{}) -> target=({},{}) screen={}x{}",
+                    String.format("%.4f", normX), String.format("%.4f", normY), targetX, targetY, realScreenSize.width, realScreenSize.height);
+            }
             
             robot.mouseMove(targetX, targetY);
         } catch (Exception e) {
@@ -198,11 +204,13 @@ public class InputForwarder {
             int targetY = (int) Math.round(normY * realScreenSize.height);
             
             int button = message.getMouseButton();
-            String buttonName = getButtonName(button);
-            String action = message.isMousePressed() ? "PRESS" : "RELEASE";
             
-            logger.debug("MOUSE IN CLICK: button={}, action={}, target=({},{}), screen={}x{}",
-                buttonName, action, targetX, targetY, realScreenSize.width, realScreenSize.height);
+            if (logger.isTraceEnabled()) {
+                String buttonName = getButtonName(button);
+                String action = message.isMousePressed() ? "PRESS" : "RELEASE";
+                logger.trace("MOUSE IN CLICK: button={}, action={}, target=({},{}), screen={}x{}",
+                    buttonName, action, targetX, targetY, realScreenSize.width, realScreenSize.height);
+            }
             
             // Always move to target first
             robot.mouseMove(targetX, targetY);
