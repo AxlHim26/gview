@@ -65,8 +65,13 @@ public class P2PServer {
                                         ":" + clientSocket.getPort();
                     
                     logger.info("Incoming P2P connection from: {}", peerAddress);
+                    
+                    // Configure socket before starting handler
                     clientSocket.setTcpNoDelay(true);
                     clientSocket.setKeepAlive(true);
+                    clientSocket.setReuseAddress(true);
+                    clientSocket.setSendBufferSize(512 * 1024);
+                    clientSocket.setReceiveBufferSize(512 * 1024);
                     
                     PeerConnectionHandler handler = new PeerConnectionHandler(
                         clientSocket, peerAddress, this);
@@ -179,6 +184,10 @@ public class P2PServer {
         private ObjectInputStream in;
         private final AtomicBoolean running;
         private final Object outLock = new Object();
+        private int screenFramesSent = 0; // Track screen frames for periodic reset
+        private long lastResetTime = System.currentTimeMillis();
+        private long lastSuccessfulSend = System.currentTimeMillis();
+        private int consecutiveSendErrors = 0;
 
         public PeerConnectionHandler(Socket socket, String peerAddress, P2PServer server) {
             this.socket = socket;
@@ -190,9 +199,10 @@ public class P2PServer {
         @Override
         public void run() {
             try {
-                // Keep connection alive for long 4K frames (no read timeout)
-                socket.setSoTimeout(0);
-                socket.setKeepAlive(true);
+                // Socket already configured in accept() - just set timeout
+                socket.setSoTimeout(0); // No read timeout - controller may pause input temporarily
+                logger.info("Handler started for {}: sendBuf={}KB, recvBuf={}KB", 
+                    peerAddress, socket.getSendBufferSize() / 1024, socket.getReceiveBufferSize() / 1024);
 
                 // CRITICAL: Initialize streams in correct order
                 // ObjectOutputStream must be created first to send header
@@ -225,10 +235,33 @@ public class P2PServer {
                             }
                         }
                     } catch (ClassNotFoundException e) {
-                        logger.error("Error deserializing message", e);
+                        logger.error("Error deserializing message from {}, continuing...", peerAddress, e);
+                        // Don't break - try to continue reading
+                    } catch (java.io.StreamCorruptedException e) {
+                        logger.warn("Stream corrupted from {} (possibly from reset()), attempting recovery...", peerAddress, e);
+                        // Try to recover - wait and continue reading
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                        // Continue - next message should be clean
+                    } catch (java.io.OptionalDataException e) {
+                        logger.warn("Optional data in stream from {} (reset token?), skipping...", peerAddress, e);
+                        // Skip and continue - this can happen during reset()
+                    } catch (java.io.EOFException e) {
+                        logger.info("Peer {} closed connection cleanly", peerAddress);
+                        break;
+                    } catch (java.net.SocketException e) {
+                        if (running.get()) {
+                            logger.error("Socket error from {}: {}", peerAddress, e.getMessage());
+                        }
+                        break;
                     } catch (IOException e) {
                         if (running.get()) {
-                            logger.debug("Connection closed or error reading: {}", e.getMessage());
+                            logger.error("Connection error from {}: {} - {}", peerAddress, 
+                                e.getClass().getSimpleName(), e.getMessage());
                         }
                         break;
                     }
@@ -247,11 +280,50 @@ public class P2PServer {
                     try {
                         out.writeObject(message);
                         out.flush();
-                        // CRITICAL: Reset to prevent memory leak when sending frames repeatedly
-                        out.reset();
+                        
+                        // CRITICAL: Extremely conservative reset strategy
+                        // Only reset for SCREEN frames (large, cause memory leak)
+                        // Reset every 500 frames OR every 60 seconds (whichever comes first)
+                        // At 30 FPS: 500 frames = 16.7 seconds
+                        // At 15 FPS: 500 frames = 33 seconds
+                        // This minimizes StreamCorruptedException while preventing leak
+                        boolean isScreenFrame = P2PMessage.TYPE_SCREEN.equals(message.getType());
+                        long now = System.currentTimeMillis();
+                        
+                        if (isScreenFrame) {
+                            screenFramesSent++;
+                            if (screenFramesSent >= 500 || (now - lastResetTime) >= 60000) {
+                                out.reset();
+                                logger.debug("Stream reset to {} after {} screen frames / {}s", 
+                                    peerAddress, screenFramesSent, (now - lastResetTime) / 1000);
+                                screenFramesSent = 0;
+                                lastResetTime = now;
+                            }
+                        }
+                        // NEVER reset for input events - too frequent, causes corruption
+                        
+                        lastSuccessfulSend = now;
+                        consecutiveSendErrors = 0; // Reset error count on success
                     } catch (IOException e) {
-                        logger.error("Error sending message to {}", peerAddress, e);
+                        consecutiveSendErrors++;
+                        logger.error("Error sending {} to {} (error #{}, socket alive={}): {}", 
+                            message.getType(), peerAddress, consecutiveSendErrors, 
+                            socket.isConnected(), e.getMessage());
+                        
+                        // Only close after multiple consecutive errors AND socket is dead
+                        if (consecutiveSendErrors >= 5 || !socket.isConnected() || socket.isClosed()) {
+                            logger.error("Multiple send failures or socket dead, closing connection to {} (errors={})", 
+                                peerAddress, consecutiveSendErrors);
                         close();
+                        } else {
+                            // Log but continue - might be transient
+                            logger.warn("Send error #{} to {} but retrying...", consecutiveSendErrors, peerAddress);
+                            try {
+                                Thread.sleep(10); // Brief pause
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
                     }
                 }
             }
@@ -280,21 +352,11 @@ public class P2PServer {
         }
 
         private void sendInputAck(P2PMessage original) {
-            if (out == null || original == null || P2PMessage.TYPE_INPUT_ACK.equals(original.getType())) {
+            // DISABLED: Input acks are not critical for mouse/keyboard
+            // Sending acks for every input event causes excessive reset() calls
+            // which can corrupt the stream and cause disconnects
+            // Keep method for compatibility but don't send
                 return;
-            }
-            try {
-                P2PMessage ack = new P2PMessage(P2PMessage.TYPE_INPUT_ACK, null);
-                ack.setAckRefTimestamp(original.getTimestamp());
-                ack.setAckForType(original.getType());
-                ack.setFrameSeq(original.getFrameSeq());
-                ack.setTimestamp(System.currentTimeMillis());
-                out.writeObject(ack);
-                out.flush();
-                out.reset();
-            } catch (IOException e) {
-                logger.debug("Failed to send input ack to {}: {}", peerAddress, e.getMessage());
-            }
         }
     }
 }

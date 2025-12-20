@@ -22,6 +22,8 @@ public class P2PClient {
     private final AtomicBoolean connected;
     private Thread receiverThread;
     private final Object sendLock = new Object();
+    private long lastSuccessfulSend = System.currentTimeMillis();
+    private int consecutiveSendErrors = 0;
 
     public interface MessageListener {
         void onMessageReceived(P2PMessage message);
@@ -59,11 +61,17 @@ public class P2PClient {
                 logger.info("This peer is CONTROLLER - will receive screen from remote peer");
 
                 socket = new Socket();
-                socket.setTcpNoDelay(true);
-                socket.setKeepAlive(true);
+                // CRITICAL TCP optimizations for stable P2P over overlay network
+                socket.setTcpNoDelay(true); // Disable Nagle for low-latency input events
+                socket.setKeepAlive(true); // Enable TCP keep-alive
+                socket.setSendBufferSize(512 * 1024); // 512KB send buffer (input events burst)
+                socket.setReceiveBufferSize(512 * 1024); // 512KB receive buffer (screen frames)
+                socket.setReuseAddress(true); // Allow quick reconnection
                 socket.connect(new InetSocketAddress(host, port), connectTimeoutMs);
-                // High-quality streaming can have long encode gaps; disable read timeout
-                socket.setSoTimeout(0); // 0 = infinite
+                // Disable read timeout - controlled peer may pause encoding temporarily
+                socket.setSoTimeout(0); // 0 = infinite, won't timeout on slow frames
+                logger.info("Socket configured: sendBuf={}KB, recvBuf={}KB, tcpNoDelay=true, keepAlive=true", 
+                    socket.getSendBufferSize() / 1024, socket.getReceiveBufferSize() / 1024);
 
                 // CRITICAL: Initialize streams in correct order
                 // ObjectOutputStream must be created first to send header
@@ -149,10 +157,34 @@ public class P2PClient {
                         }
                     }
                 } catch (ClassNotFoundException e) {
-                    logger.error("Error deserializing message", e);
+                    logger.error("Error deserializing message (class not found), continuing...", e);
+                    // Don't break - try to continue reading next message
+                } catch (java.io.StreamCorruptedException e) {
+                    logger.warn("Stream corrupted (possibly from reset()), attempting recovery...", e);
+                    // Try to recover by reading past corruption
+                    // This is safe because reset() is rare (every 1000 events / 60s)
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                    // Continue reading - next message should be clean
+                } catch (java.io.OptionalDataException e) {
+                    logger.warn("Optional data in stream (reset token?), skipping...", e);
+                    // This can happen when reset() is called - skip and continue
+                } catch (java.io.EOFException e) {
+                    logger.info("Peer closed connection cleanly");
+                    break;
+                } catch (java.net.SocketException e) {
+                    if (connected.get()) {
+                        logger.error("Socket error: {}", e.getMessage());
+                    }
+                    break;
                 } catch (IOException e) {
                     if (connected.get()) {
-                        logger.debug("Connection closed or error reading: {}", e.getMessage());
+                        logger.error("Connection error while reading: {} - {}", 
+                            e.getClass().getSimpleName(), e.getMessage());
                     }
                     break;
                 }
@@ -167,6 +199,10 @@ public class P2PClient {
 
     /**
      * Send message to peer (mouse/keyboard events)
+     * CRITICAL: NO reset() EVER for input events
+     * - Input events are small (< 1KB) and don't cause significant memory leak
+     * - reset() causes StreamCorruptedException on receiver → disconnect
+     * - Stability and responsiveness >> memory efficiency
      */
     public void sendMessage(P2PMessage message) {
         if (!connected.get() || out == null) {
@@ -178,12 +214,35 @@ public class P2PClient {
             try {
                 out.writeObject(message);
                 out.flush();
-                // CRITICAL: Reset to prevent memory leak when sending same object types repeatedly
-                // Without this, ObjectOutputStream caches references and causes OutOfMemoryError
-                out.reset();
+                // NO reset() - stability is paramount for input events
+                
+                lastSuccessfulSend = System.currentTimeMillis();
+                if (consecutiveSendErrors > 0) {
+                    logger.info("Send recovered after {} errors", consecutiveSendErrors);
+                    consecutiveSendErrors = 0;
+                }
             } catch (IOException e) {
-                logger.error("Error sending message", e);
+                consecutiveSendErrors++;
+                long timeSinceLastSuccess = System.currentTimeMillis() - lastSuccessfulSend;
+                
+                logger.error("Error sending {} event (error #{}, time since last success={}ms, socket alive={}): {}", 
+                    message.getType(), consecutiveSendErrors, timeSinceLastSuccess,
+                    socket.isConnected(), e.getMessage());
+                
+                // Disconnect only if:
+                // 1. Socket is confirmed dead, OR
+                // 2. 10+ consecutive errors, OR
+                // 3. No successful send for 10+ seconds
+                if (!socket.isConnected() || socket.isClosed() || 
+                    consecutiveSendErrors >= 10 ||
+                    timeSinceLastSuccess >= 10000) {
+                    logger.error("Connection to peer dead, disconnecting (errors={}, staleTime={}ms)", 
+                        consecutiveSendErrors, timeSinceLastSuccess);
                 disconnect();
+                } else {
+                    // Transient error - continue
+                    logger.warn("Send error #{} but connection likely alive, retrying...", consecutiveSendErrors);
+                }
             }
         }
     }

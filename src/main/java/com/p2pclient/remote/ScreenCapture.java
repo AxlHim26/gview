@@ -120,7 +120,7 @@ public class ScreenCapture {
 
             int count = CAPTURE_COUNTER.incrementAndGet();
             String mode = "P2P";
-
+            
             logger.debug(
                 "ScreenCapture [{}]: original={}x{}, scaled={}x{}, scaleFactor={}, jpegSize={} bytes, quality={}",
                 mode,
@@ -133,7 +133,7 @@ public class ScreenCapture {
                 quality
             );
             if (count % 10 == 0) {
-                logger.info("ScreenCapture [P2P] stats: frame #{}, jpegSize={} bytes", count, jpegBytes.length);
+                    logger.info("ScreenCapture [P2P] stats: frame #{}, jpegSize={} bytes", count, jpegBytes.length);
             }
 
             return new ScreenCaptureResult(

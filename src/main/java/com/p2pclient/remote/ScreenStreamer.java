@@ -172,11 +172,26 @@ public class ScreenStreamer implements Runnable {
                 message.setTimestamp(frame.getCaptureTimestamp());
 
                 long sendStart = System.nanoTime();
+                int sendRetries = 0;
+                boolean sendSuccess = false;
+                while (sendRetries < 3 && !sendSuccess && running.get() && sessionAlive.get()) {
                 try {
                     sender.accept(message);
+                        sendSuccess = true;
                 } catch (Exception e) {
-                    logger.error("Failed to send screen frame to {}", peerLabel, e);
-                    break;
+                        sendRetries++;
+                        logger.error("Failed to send screen frame to {} (attempt {}/3): {}", 
+                            peerLabel, sendRetries, e.getMessage());
+                        if (sendRetries >= 3) {
+                            logger.error("Failed to send after 3 attempts, stopping stream to {}", peerLabel);
+                            break; // Exit while loop
+                        }
+                        // Brief pause before retry
+                        sleep(50);
+                    }
+                }
+                if (!sendSuccess) {
+                    break; // Exit main loop if send failed after retries
                 }
                 long sendMs = (System.nanoTime() - sendStart) / 1_000_000L;
                 boolean sendStressed = sendMs > frameIntervalMillis * 0.8;

@@ -70,8 +70,8 @@ public class InputForwarder {
         
         if (logger.isTraceEnabled()) {
             logger.trace("MOUSE OUT MOVE: raw=({},{}), norm=({},{}) imgSize={}x{}, fallbackScreen={}x{}",
-                imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
-                imgW, imgH, realScreenSize.width, realScreenSize.height);
+            imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
+            imgW, imgH, realScreenSize.width, realScreenSize.height);
         }
         
         P2PMessage message = new P2PMessage();
@@ -118,11 +118,11 @@ public class InputForwarder {
         int scaledY = (int) Math.round(normY * NORMALIZATION_SCALE);
         
         if (logger.isTraceEnabled()) {
-            String action = pressed ? "PRESS" : "RELEASE";
-            String buttonName = getButtonName(button);
+        String action = pressed ? "PRESS" : "RELEASE";
+        String buttonName = getButtonName(button);
             logger.trace("MOUSE OUT CLICK: raw=({},{}), norm=({},{}) imgSize={}x{}, button={}, action={}",
-                imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
-                imgW, imgH, buttonName, action);
+            imageX, imageY, String.format("%.4f", normX), String.format("%.4f", normY), 
+            imgW, imgH, buttonName, action);
         }
         
         P2PMessage message = new P2PMessage();
@@ -172,7 +172,7 @@ public class InputForwarder {
             
             if (logger.isTraceEnabled()) {
                 logger.trace("MOUSE IN MOVE: norm=({},{}) -> target=({},{}) screen={}x{}",
-                    String.format("%.4f", normX), String.format("%.4f", normY), targetX, targetY, realScreenSize.width, realScreenSize.height);
+                String.format("%.4f", normX), String.format("%.4f", normY), targetX, targetY, realScreenSize.width, realScreenSize.height);
             }
             
             robot.mouseMove(targetX, targetY);
@@ -209,7 +209,7 @@ public class InputForwarder {
                 String buttonName = getButtonName(button);
                 String action = message.isMousePressed() ? "PRESS" : "RELEASE";
                 logger.trace("MOUSE IN CLICK: button={}, action={}, target=({},{}), screen={}x{}",
-                    buttonName, action, targetX, targetY, realScreenSize.width, realScreenSize.height);
+                buttonName, action, targetX, targetY, realScreenSize.width, realScreenSize.height);
             }
             
             // Always move to target first
