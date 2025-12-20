@@ -3,7 +3,7 @@ name: automated-build
 on:
   push:
     branches:
-      - main
+      - gviewer
   jobs:
     build:
       runs-on: ubuntu-latest
