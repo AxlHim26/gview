@@ -128,7 +128,11 @@ public class MainWindowController {
         if (text == null || text.isBlank()) {
             return;
         }
-        appendRegistrationChat("Me: " + text.trim());
+        String trimmed = text.trim();
+        appendRegistrationChat("Me: " + trimmed);
+        if (coordinator != null) {
+            coordinator.sendChatMessage(trimmed);
+        }
         regChatInput.clear();
     }
 
@@ -141,6 +145,10 @@ public class MainWindowController {
             }
             regChatArea.setScrollTop(Double.MAX_VALUE);
         });
+    }
+
+    public void appendIncomingChat(String message) {
+        appendRegistrationChat(message);
     }
 
     @FXML

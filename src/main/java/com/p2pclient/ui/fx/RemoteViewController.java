@@ -24,9 +24,13 @@ import javafx.scene.image.PixelWriter;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Button;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 
 import java.awt.image.BufferedImage;
 import java.util.concurrent.atomic.AtomicLong;
+import java.io.File;
 
 public class RemoteViewController {
     @FXML
@@ -143,8 +147,46 @@ public class RemoteViewController {
         if (text == null || text.isBlank()) {
             return;
         }
-        appendChat("Me: " + text.trim());
+        String trimmed = text.trim();
+        appendChat("Me: " + trimmed);
+        if (coordinator != null) {
+            coordinator.sendChatMessage(trimmed);
+        }
         chatInput.clear();
+    }
+
+    @FXML
+    private void sendFileAction() {
+        if (coordinator == null) {
+            return;
+        }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Chọn file để gửi");
+        File file = chooser.showOpenDialog(getWindow());
+        if (file != null) {
+            appendChat("Đang gửi file: " + file.getName());
+            coordinator.sendFile(file);
+        }
+    }
+
+    @FXML
+    private void sendFolderAction() {
+        if (coordinator == null) {
+            return;
+        }
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle("Chọn folder để gửi");
+        File folder = chooser.showDialog(getWindow());
+        if (folder != null) {
+            appendChat("Đang nén và gửi folder: " + folder.getName());
+            coordinator.sendFolder(folder);
+        }
+    }
+
+    private Window getWindow() {
+        return chatContainer != null && chatContainer.getScene() != null
+            ? chatContainer.getScene().getWindow()
+            : null;
     }
 
     public void appendChat(String message) {

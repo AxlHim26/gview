@@ -10,6 +10,8 @@ public class P2PMessage implements Serializable {
     public static final String TYPE_KEYBOARD = "KEYBOARD";
     public static final String TYPE_DISCONNECT = "DISCONNECT";
     public static final String TYPE_INPUT_ACK = "ACK";
+    public static final String TYPE_CHAT = "CHAT";
+    public static final String TYPE_FILE_CHUNK = "FILE_CHUNK";
     
     private String type;
     private byte[] data;
@@ -38,6 +40,14 @@ public class P2PMessage implements Serializable {
     private int keyCode;
     private boolean keyPressed;
     private int keyModifiers;
+    private String chatText;
+    private String fileTransferId;
+    private String fileName;
+    private long fileSize;
+    private int fileChunkIndex;
+    private int fileChunkTotal;
+    private boolean fileTransferComplete;
+    private boolean fileIsDirectory;
 
     public P2PMessage() {
         this.timestamp = System.currentTimeMillis();
@@ -263,5 +273,69 @@ public class P2PMessage implements Serializable {
 
     public void setKeyModifiers(int keyModifiers) {
         this.keyModifiers = keyModifiers;
+    }
+
+    public String getChatText() {
+        return chatText;
+    }
+
+    public void setChatText(String chatText) {
+        this.chatText = chatText;
+    }
+
+    public String getFileTransferId() {
+        return fileTransferId;
+    }
+
+    public void setFileTransferId(String fileTransferId) {
+        this.fileTransferId = fileTransferId;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(long fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public int getFileChunkIndex() {
+        return fileChunkIndex;
+    }
+
+    public void setFileChunkIndex(int fileChunkIndex) {
+        this.fileChunkIndex = fileChunkIndex;
+    }
+
+    public int getFileChunkTotal() {
+        return fileChunkTotal;
+    }
+
+    public void setFileChunkTotal(int fileChunkTotal) {
+        this.fileChunkTotal = fileChunkTotal;
+    }
+
+    public boolean isFileTransferComplete() {
+        return fileTransferComplete;
+    }
+
+    public void setFileTransferComplete(boolean fileTransferComplete) {
+        this.fileTransferComplete = fileTransferComplete;
+    }
+
+    public boolean isFileIsDirectory() {
+        return fileIsDirectory;
+    }
+
+    public void setFileIsDirectory(boolean fileIsDirectory) {
+        this.fileIsDirectory = fileIsDirectory;
     }
 }
