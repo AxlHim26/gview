@@ -22,7 +22,16 @@ public class MainFxApplication extends Application {
             stage.getIcons().add(new Image(iconStream));
         }
         stage.setScene(scene);
-        stage.setMaximized(true);
+        // Start with registration view size (smaller)
+        double registrationWidth = 1040;
+        double registrationHeight = 740;
+        stage.setWidth(registrationWidth);
+        stage.setHeight(registrationHeight);
+        stage.setMinWidth(registrationWidth);
+        stage.setMinHeight(registrationHeight);
+        stage.setMaxWidth(registrationWidth);
+        stage.setMaxHeight(registrationHeight);
+        stage.setResizable(true);
         stage.show();
 
         MainWindowController controller = loader.getController();

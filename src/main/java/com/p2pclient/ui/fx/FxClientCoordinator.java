@@ -10,6 +10,7 @@ import com.p2pclient.remote.ScreenCapture;
 import com.p2pclient.remote.ScreenQualityProfile;
 import com.p2pclient.remote.ScreenReceiver;
 import com.p2pclient.remote.ScreenStreamer;
+import com.p2pclient.util.ConfigLoader;
 import com.p2pclient.util.NetworkUtils;
 import javafx.application.Platform;
 import javafx.stage.Stage;
@@ -18,7 +19,6 @@ import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.*;
@@ -196,6 +196,7 @@ public class FxClientCoordinator {
                         sessionsController.setDisconnectEnabled(true);
                         sessionsController.updateActiveSession(targetPeerId, "Controller", "Connected");
                         mainWindowController.updateConnectionMode("P2P");
+                        mainWindowController.showControlView();
                     });
                 } else {
                     Platform.runLater(() -> {
@@ -233,6 +234,8 @@ public class FxClientCoordinator {
             mainWindowController.updateConnectionMode("Idle");
             sessionsController.setConnectEnabled(true);
             sessionsController.setBusy(false);
+            mainWindowController.showRegistrationView();
+            mainWindowController.setIncomingControllerInfo(null, null, null);
         });
     }
 
@@ -355,6 +358,8 @@ public class FxClientCoordinator {
                 remoteViewController.setController(false);
                 mainWindowController.updateConnectionMode("P2P");
                 sessionsController.setConnectionMode("P2P");
+                mainWindowController.setIncomingControllerInfo(sourcePeerId, ipAddress, port);
+                mainWindowController.showRegistrationView();
             });
         });
     }
@@ -411,7 +416,13 @@ public class FxClientCoordinator {
             @Override
             public void onPeerDisconnected(String peerAddress) {
                 stopStream(peerAddress);
-                Platform.runLater(() -> sessionsController.appendLog("Peer disconnected: " + peerAddress));
+                Platform.runLater(() -> {
+                    sessionsController.appendLog("Peer disconnected: " + peerAddress);
+                    if (!isController) {
+                        mainWindowController.setIncomingControllerInfo(null, null, null);
+                        mainWindowController.showRegistrationView();
+                    }
+                });
             }
         });
         p2pServer.start();
@@ -442,6 +453,8 @@ public class FxClientCoordinator {
                 Platform.runLater(() -> {
                     sessionsController.appendLog("P2P client disconnected");
                     remoteViewController.clearScreen();
+                    mainWindowController.showRegistrationView();
+                    mainWindowController.setIncomingControllerInfo(null, null, null);
                 });
             }
 
@@ -534,14 +547,6 @@ public class FxClientCoordinator {
     }
 
     private Properties loadConfig() {
-        Properties props = new Properties();
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream("config.properties")) {
-            if (is != null) {
-                props.load(is);
-            }
-        } catch (IOException e) {
-            logger.warn("Could not load config.properties", e);
-        }
-        return props;
+        return ConfigLoader.load("config.properties");
     }
 }

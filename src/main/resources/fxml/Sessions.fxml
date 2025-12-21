@@ -33,8 +33,8 @@
             </GridPane>
             <HBox spacing="8" alignment="CENTER_LEFT">
                 <Label fx:id="myPeerIdLabel" text="Peer ID: not registered" HBox.hgrow="ALWAYS" />
-                <Button fx:id="copyPeerIdButton" text="📋 Copy" onAction="#copyPeerId" 
-                        styleClass="ghost-button" prefWidth="80" visible="false" />
+                <Button fx:id="copyPeerIdButton" text="Copy ID" onAction="#copyPeerId"
+                        styleClass="ghost-button" prefWidth="120" minHeight="34" visible="false" />
             </HBox>
             <Label fx:id="identityStatusLabel" textFill="#4f6f8f" />
         </VBox>

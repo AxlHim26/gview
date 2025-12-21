@@ -2,6 +2,7 @@ package com.p2pclient.network;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.p2pclient.model.PeerInfo;
+import com.p2pclient.util.ConfigLoader;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -22,7 +23,6 @@ import org.springframework.web.socket.messaging.WebSocketStompClient;
 import jakarta.websocket.ContainerProvider;
 import jakarta.websocket.WebSocketContainer;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -67,15 +67,7 @@ public class IdServerClient {
     }
 
     private Properties loadConfig() {
-        Properties props = new Properties();
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream("config.properties")) {
-            if (is != null) {
-                props.load(is);
-            }
-        } catch (IOException e) {
-            logger.warn("Could not load config.properties, using defaults", e);
-        }
-        return props;
+        return ConfigLoader.load("config.properties");
     }
 
     /**
@@ -675,4 +667,3 @@ public class IdServerClient {
         }
     }
 }
-

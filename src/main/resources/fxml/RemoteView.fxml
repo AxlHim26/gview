@@ -14,24 +14,25 @@
             <Label text="Remote View" styleClass="section-title" />
             <Label fx:id="metricsLabel" text="fps: - | rtt: - | cpu: -" styleClass="muted" />
             <Region HBox.hgrow="ALWAYS" />
+            <Button text="Disconnect" onAction="#handleDisconnect" />
             <Button fx:id="fullScreenButton" text="Fullscreen" onAction="#toggleFullScreen" />
             <Label fx:id="roleLabel" text="Role: idle" />
         </HBox>
     </top>
     <center>
-        <VBox spacing="4">
-            <StackPane fx:id="remoteSurface" styleClass="remote-surface" VBox.vgrow="ALWAYS" maxWidth="Infinity" maxHeight="Infinity">
-                <Canvas fx:id="remoteCanvas" width="900" height="520" />
+        <HBox styleClass="remote-view-center" spacing="10" maxWidth="Infinity" maxHeight="Infinity">
+            <StackPane fx:id="remoteSurface" styleClass="remote-surface" HBox.hgrow="ALWAYS" maxWidth="Infinity" maxHeight="Infinity">
+                <Canvas fx:id="remoteCanvas" />
                 <Label fx:id="overlayLabel" text="Waiting for session" styleClass="overlay" />
             </StackPane>
-            <VBox fx:id="chatContainer" spacing="6" styleClass="panel-border">
+            <VBox fx:id="chatContainer" spacing="8" styleClass="panel-border" prefWidth="360" maxWidth="360" minWidth="360">
                 <Label text="Chat" styleClass="section-title" />
-                <TextArea fx:id="chatArea" prefRowCount="3" wrapText="true" editable="false" />
-                <HBox spacing="8" alignment="CENTER_LEFT">
+                <TextArea fx:id="chatArea" prefRowCount="7" wrapText="true" editable="false" VBox.vgrow="ALWAYS" />
+                <HBox spacing="8">
                     <TextField fx:id="chatInput" promptText="Type a message..." HBox.hgrow="ALWAYS" />
                     <Button text="Send" onAction="#sendChat" />
                 </HBox>
             </VBox>
-        </VBox>
+        </HBox>
     </center>
 </BorderPane>

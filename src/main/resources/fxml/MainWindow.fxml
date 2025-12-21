@@ -1,43 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.p2pclient.ui.fx.MainWindowController"
-            prefWidth="1200.0" prefHeight="800.0">
+            prefWidth="1040.0" prefHeight="740.0" maxWidth="Infinity" maxHeight="Infinity">
     <top>
-        <MenuBar>
-            <menus>
-                <Menu text="File">
-                    <items>
-                        <MenuItem text="Exit" onAction="#exitApp" />
-                    </items>
-                </Menu>
-                <Menu text="View">
-                    <items>
-                        <MenuItem text="Toggle Theme" onAction="#toggleTheme" />
-                    </items>
-                </Menu>
-            </menus>
-        </MenuBar>
+        <HBox spacing="8" alignment="CENTER_LEFT" styleClass="header-bar">
+            <Label fx:id="statusLabel" text="Ready" styleClass="status-text" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="connectionModeLabel" text="Mode: idle" styleClass="status-text" />
+            <Button text="Light/Dark" onAction="#toggleTheme" styleClass="chip-button" />
+            <Button text="Exit" onAction="#exitApp" styleClass="chip-button danger" />
+        </HBox>
     </top>
     <center>
-        <SplitPane dividerPositions="0.3">
-            <items>
-                <ScrollPane hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" fitToWidth="true" styleClass="panel-border">
-                    <content>
-                        <VBox fx:id="sessionsContainer" spacing="8" minWidth="260.0" prefWidth="340.0" styleClass="panel-border" />
-                    </content>
-                </ScrollPane>
-                <StackPane fx:id="remoteContainer" styleClass="panel-border" />
-            </items>
-        </SplitPane>
+        <StackPane fx:id="contentStack" maxWidth="Infinity" maxHeight="Infinity">
+            <!-- Registration / waiting view -->
+            <VBox fx:id="registrationPane" spacing="12" maxWidth="-1.0">
+                <padding>
+                    <Insets topRightBottomLeft="12" />
+                </padding>
+                <Label text="Đăng ký / Kết nối" styleClass="section-title" />
+                <Label fx:id="incomingInfoLabel" text="Chưa có bên nào điều khiển bạn" styleClass="muted" />
+                <HBox spacing="10" alignment="TOP_CENTER">
+                    <ScrollPane hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" fitToWidth="true" fitToHeight="true"
+                                styleClass="panel-border chromeless-scroll" VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS" maxWidth="-1.0">
+                        <content>
+                            <VBox fx:id="sessionsContainer" spacing="8" minWidth="320.0" prefWidth="360.0" maxWidth="-1.0" styleClass="panel-border" />
+                        </content>
+                    </ScrollPane>
+                    <VBox spacing="8" VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS" maxWidth="-1.0" styleClass="panel-border">
+                        <Label text="Chat" styleClass="section-title" />
+                        <TextArea fx:id="regChatArea" prefRowCount="7" wrapText="true" editable="false" VBox.vgrow="ALWAYS" />
+                        <HBox spacing="8">
+                            <TextField fx:id="regChatInput" promptText="Nhập tin nhắn..." HBox.hgrow="ALWAYS" />
+                            <Button text="Gửi" onAction="#sendRegistrationChat" />
+                        </HBox>
+                    </VBox>
+                </HBox>
+            </VBox>
+
+            <!-- Control view (controller side) -->
+            <BorderPane fx:id="controlPane" visible="false" managed="false" maxWidth="Infinity" maxHeight="Infinity">
+                <center>
+                    <StackPane fx:id="remoteContainer" maxWidth="Infinity" maxHeight="Infinity" />
+                </center>
+            </BorderPane>
+        </StackPane>
     </center>
-    <bottom>
-        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="status-bar">
-            <Label fx:id="statusLabel" text="Ready" />
-            <Region HBox.hgrow="ALWAYS" />
-            <Label fx:id="connectionModeLabel" text="Mode: idle" />
-            <Button text="Light/Dark" onAction="#toggleTheme" />
-        </HBox>
-    </bottom>
 </BorderPane>

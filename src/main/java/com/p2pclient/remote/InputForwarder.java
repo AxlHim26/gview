@@ -18,11 +18,111 @@ public class InputForwarder {
     private Dimension realScreenSize; // Real screen size (used for fallback normalization and controlled side denormalization)
 
     public InputForwarder() throws AWTException {
+        // CRITICAL: Check for Linux/Wayland vs X11
+        detectDisplayServer();
+        
+        // CRITICAL: Check macOS Accessibility permissions
+        checkMacOSPermissions();
+        
         this.robot = new Robot();
+        
+        // Test if Robot actually works (permissions check)
+        testRobotPermissions();
+        
         // Get real screen size for fallback normalization (controller) and denormalization (controlled)
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         this.realScreenSize = screenSize;
         logger.info("InputForwarder initialized with real screen size: {}x{}", screenSize.width, screenSize.height);
+    }
+    
+    /**
+     * Check macOS Accessibility permissions
+     */
+    private void checkMacOSPermissions() {
+        String os = System.getProperty("os.name").toLowerCase();
+        if (!os.contains("mac")) {
+            return; // Not macOS
+        }
+        
+        logger.info("macOS detected - checking Accessibility permissions...");
+        
+        // Try to detect if we have permissions by attempting a small mouse move
+        try {
+            Point currentPos = MouseInfo.getPointerInfo().getLocation();
+            // This will work but Robot operations might not if no permissions
+            logger.info("Current mouse position: {}", currentPos);
+            logger.warn("*****************************************************");
+            logger.warn("macOS Accessibility Permissions Required!");
+            logger.warn("If Robot doesn't work, enable permissions:");
+            logger.warn("  1. System Settings → Privacy & Security");
+            logger.warn("  2. Accessibility → Add this app (Java/Terminal)");
+            logger.warn("  3. Enable the toggle");
+            logger.warn("  4. Restart app");
+            logger.warn("*****************************************************");
+        } catch (Exception e) {
+            logger.error("Cannot get mouse position - permissions may be denied", e);
+        }
+    }
+    
+    /**
+     * Detect display server (X11 vs Wayland) on Linux
+     */
+    private void detectDisplayServer() throws AWTException {
+        String os = System.getProperty("os.name").toLowerCase();
+        if (!os.contains("linux")) {
+            return; // Not Linux, no issue
+        }
+        
+        String sessionType = System.getenv("XDG_SESSION_TYPE");
+        String waylandDisplay = System.getenv("WAYLAND_DISPLAY");
+        String x11Display = System.getenv("DISPLAY");
+        
+        logger.info("Linux detected - Display server check:");
+        logger.info("  XDG_SESSION_TYPE: {}", sessionType);
+        logger.info("  WAYLAND_DISPLAY: {}", waylandDisplay);
+        logger.info("  DISPLAY (X11): {}", x11Display);
+        
+        if ("wayland".equalsIgnoreCase(sessionType) || waylandDisplay != null) {
+            logger.error("*****************************************************");
+            logger.error("WAYLAND DETECTED - Robot will NOT work!");
+            logger.error("Java Robot requires X11 to control mouse/keyboard.");
+            logger.error("Please switch to X11 session:");
+            logger.error("  1. Logout from Ubuntu");
+            logger.error("  2. At login screen, click gear icon");
+            logger.error("  3. Select 'Ubuntu on Xorg' (X11)");
+            logger.error("  4. Login and run app again");
+            logger.error("*****************************************************");
+            throw new AWTException("Wayland detected - Java Robot requires X11. Switch to 'Ubuntu on Xorg' session.");
+        }
+        
+        if (x11Display == null || x11Display.isEmpty()) {
+            logger.warn("DISPLAY environment variable not set - Robot may not work");
+        } else {
+            logger.info("X11 detected (DISPLAY={}), Robot should work", x11Display);
+        }
+    }
+    
+    /**
+     * Test if Robot has permissions to control input
+     */
+    private void testRobotPermissions() {
+        try {
+            // Try to move mouse slightly and restore
+            Point originalPos = MouseInfo.getPointerInfo().getLocation();
+            robot.mouseMove(originalPos.x, originalPos.y);
+            logger.info("Robot permissions OK - can control mouse/keyboard");
+        } catch (Exception e) {
+            logger.error("*****************************************************");
+            logger.error("Robot permissions test FAILED!");
+            logger.error("Cannot control mouse/keyboard on this machine.");
+            logger.error("Error: {}", e.getMessage());
+            logger.error("*****************************************************");
+            logger.error("On Linux, ensure:");
+            logger.error("  1. Running X11 (not Wayland)");
+            logger.error("  2. XTEST extension enabled: xdpyinfo | grep XTEST");
+            logger.error("  3. User has input permissions");
+            logger.error("*****************************************************");
+        }
     }
 
     /**

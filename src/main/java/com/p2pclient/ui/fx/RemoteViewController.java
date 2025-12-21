@@ -15,6 +15,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.image.PixelFormat;
@@ -41,6 +42,8 @@ public class RemoteViewController {
     @FXML
     private Button fullScreenButton;
     @FXML
+    private VBox chatContainer;
+    @FXML
     private TextArea chatArea;
     @FXML
     private TextField chatInput;
@@ -60,12 +63,38 @@ public class RemoteViewController {
     private final AtomicLong renderFrames = new AtomicLong();
     private Pane remoteSurfaceParent;
     private int remoteSurfaceIndex = -1;
+    private boolean fullScreenActive = false;
 
     @FXML
     public void initialize() {
         remoteCanvas.setFocusTraversable(true);
+        // Set initial size to avoid 0x0 canvas
+        remoteCanvas.setWidth(820);
+        remoteCanvas.setHeight(480);
+        // Bind canvas size to remoteSurface size after scene is ready
+        Platform.runLater(() -> {
+            if (remoteSurface.getWidth() > 0 && remoteSurface.getHeight() > 0) {
+                remoteCanvas.widthProperty().unbind();
+                remoteCanvas.heightProperty().unbind();
+                remoteCanvas.widthProperty().bind(remoteSurface.widthProperty());
+                remoteCanvas.heightProperty().bind(remoteSurface.heightProperty());
+            } else {
+                // If parent not ready, listen for width changes
+                remoteSurface.widthProperty().addListener((obs, oldVal, newVal) -> {
+                    if (newVal.doubleValue() > 0 && !remoteCanvas.widthProperty().isBound()) {
+                        remoteCanvas.widthProperty().unbind();
+                        remoteCanvas.heightProperty().unbind();
+                        remoteCanvas.widthProperty().bind(remoteSurface.widthProperty());
+                        remoteCanvas.heightProperty().bind(remoteSurface.heightProperty());
+                    }
+                });
+            }
+        });
+        // Also handle parent changes for fullscreen mode
         remoteCanvas.parentProperty().addListener((obs, oldParent, newParent) -> {
             if (newParent instanceof Region region) {
+                remoteCanvas.widthProperty().unbind();
+                remoteCanvas.heightProperty().unbind();
                 remoteCanvas.widthProperty().bind(region.widthProperty());
                 remoteCanvas.heightProperty().bind(region.heightProperty());
             }
@@ -102,6 +131,13 @@ public class RemoteViewController {
     }
 
     @FXML
+    private void handleDisconnect() {
+        if (coordinator != null) {
+            coordinator.disconnect();
+        }
+    }
+
+    @FXML
     private void sendChat() {
         String text = chatInput.getText();
         if (text == null || text.isBlank()) {
@@ -122,8 +158,10 @@ public class RemoteViewController {
         });
     }
 
+
     public void setFullScreenState(boolean full) {
         Platform.runLater(() -> {
+            fullScreenActive = full;
             if (fullScreenButton != null) {
                 fullScreenButton.setText(full ? "Exit Fullscreen" : "Fullscreen");
             }
@@ -158,8 +196,93 @@ public class RemoteViewController {
                 children.add(remoteSurface);
             }
         }
+        // Ensure chat stays visible when coming back from fullscreen
+        if (chatContainer != null) {
+            chatContainer.setVisible(true);
+            chatContainer.setManaged(true);
+        }
+        // Reset sizing hints so HBox can re-measure correctly
+        remoteSurface.setMinSize(0, 0);
+        remoteSurface.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
+        remoteSurface.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        // Rebind canvas to remoteSurface after restore
+        Platform.runLater(() -> {
+            if (remoteSurface.getWidth() > 0 && remoteSurface.getHeight() > 0) {
+                remoteCanvas.widthProperty().unbind();
+                remoteCanvas.heightProperty().unbind();
+                remoteCanvas.widthProperty().bind(remoteSurface.widthProperty());
+                remoteCanvas.heightProperty().bind(remoteSurface.heightProperty());
+            }
+            remoteSurface.requestLayout();
+            if (remoteSurface.getParent() != null) {
+                remoteSurface.getParent().requestLayout();
+            }
+        });
         remoteSurfaceParent = null;
         remoteSurfaceIndex = -1;
+    }
+
+    public void relayoutAfterFullscreenExit() {
+        Platform.runLater(() -> {
+            // Unbind canvas completely first to reset any fullscreen bindings
+            remoteCanvas.widthProperty().unbind();
+            remoteCanvas.heightProperty().unbind();
+            
+            if (chatContainer != null) {
+                chatContainer.setVisible(true);
+                chatContainer.setManaged(true);
+                // Ensure chat container maintains its fixed width
+                chatContainer.setPrefWidth(360);
+                chatContainer.setMinWidth(360);
+                chatContainer.setMaxWidth(360);
+                chatContainer.applyCss();
+                chatContainer.layout();
+            }
+            if (remoteSurface != null) {
+                // Reset remoteSurface size constraints to allow proper fill
+                remoteSurface.setMinSize(0, 0);
+                remoteSurface.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
+                remoteSurface.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+                
+                // Ensure parent HBox fills properly
+                Parent parent = remoteSurface.getParent();
+                if (parent instanceof Region parentRegion) {
+                    parentRegion.setMinSize(0, 0);
+                    parentRegion.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
+                    parentRegion.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+                }
+                
+                remoteSurface.applyCss();
+                remoteSurface.layout();
+                
+                if (parent != null) {
+                    parent.applyCss();
+                    parent.requestLayout();
+                }
+                if (remoteSurface.getScene() != null && remoteSurface.getScene().getRoot() != null) {
+                    remoteSurface.getScene().getRoot().applyCss();
+                    remoteSurface.getScene().getRoot().requestLayout();
+                }
+                
+                // Rebind canvas after layout is complete
+                Platform.runLater(() -> {
+                    if (remoteSurface.getWidth() > 0 && remoteSurface.getHeight() > 0) {
+                        remoteCanvas.widthProperty().bind(remoteSurface.widthProperty());
+                        remoteCanvas.heightProperty().bind(remoteSurface.heightProperty());
+                    } else {
+                        // If size not ready, wait for next layout pass
+                        remoteSurface.widthProperty().addListener((obs, oldVal, newVal) -> {
+                            if (newVal.doubleValue() > 0 && remoteSurface.getHeight() > 0) {
+                                remoteCanvas.widthProperty().unbind();
+                                remoteCanvas.heightProperty().unbind();
+                                remoteCanvas.widthProperty().bind(remoteSurface.widthProperty());
+                                remoteCanvas.heightProperty().bind(remoteSurface.heightProperty());
+                            }
+                        });
+                    }
+                });
+            }
+        });
     }
 
     public void updateRemoteScreen(BufferedImage image, P2PMessage metadata) {
@@ -207,10 +330,32 @@ public class RemoteViewController {
             overlayLabel.setVisible(true);
             return;
         }
+        
         double canvasW = remoteCanvas.getWidth();
         double canvasH = remoteCanvas.getHeight();
-        // Stretch to fill available canvas (no letterbox)
-        gc.drawImage(snapshot.image(), 0, 0, canvasW, canvasH);
+        double imageW = snapshot.width();
+        double imageH = snapshot.height();
+        
+        if (imageW <= 0 || imageH <= 0 || canvasW <= 0 || canvasH <= 0) {
+            overlayLabel.setText("Waiting for frames");
+            overlayLabel.setVisible(true);
+            return;
+        }
+        
+        // Keep aspect ratio; allow upscale only when fullscreen is active
+        double scaleX = canvasW / imageW;
+        double scaleY = canvasH / imageH;
+        double scale = Math.min(scaleX, scaleY);
+        if (!fullScreenActive) {
+            scale = Math.min(scale, 1.0);
+        }
+
+        double scaledW = imageW * scale;
+        double scaledH = imageH * scale;
+        double x = (canvasW - scaledW) / 2.0;
+        double y = (canvasH - scaledH) / 2.0;
+
+        gc.drawImage(snapshot.image(), x, y, scaledW, scaledH);
         overlayLabel.setVisible(false);
     }
 
@@ -306,12 +451,39 @@ public class RemoteViewController {
         }
         double canvasW = remoteCanvas.getWidth();
         double canvasH = remoteCanvas.getHeight();
-        double scaleX = canvasW / snapshot.width();
-        double scaleY = canvasH / snapshot.height();
-        double imgX = x / scaleX;
-        double imgY = y / scaleY;
-        imgX = Math.max(0, Math.min(snapshot.width() - 1, imgX));
-        imgY = Math.max(0, Math.min(snapshot.height() - 1, imgY));
+        double imageW = snapshot.width();
+        double imageH = snapshot.height();
+        
+        if (canvasW <= 0 || canvasH <= 0) {
+            return null;
+        }
+        
+        // Match the same aspect-fit logic as drawFrame
+        double scaleX = canvasW / imageW;
+        double scaleY = canvasH / imageH;
+        double scale = Math.min(scaleX, scaleY);
+        if (!fullScreenActive) {
+            scale = Math.min(scale, 1.0);
+        }
+
+        double scaledW = imageW * scale;
+        double scaledH = imageH * scale;
+        double offsetX = (canvasW - scaledW) / 2.0;
+        double offsetY = (canvasH - scaledH) / 2.0;
+
+        // If click is outside the drawn image, ignore
+        if (x < offsetX || x > offsetX + scaledW || y < offsetY || y > offsetY + scaledH) {
+            return null;
+        }
+
+        // Convert canvas coordinates to image coordinates
+        double imgX = (x - offsetX) / scale;
+        double imgY = (y - offsetY) / scale;
+        
+        // Clamp to image bounds
+        imgX = Math.max(0, Math.min(imageW - 1, imgX));
+        imgY = Math.max(0, Math.min(imageH - 1, imgY));
+        
         if (Double.isNaN(imgX) || Double.isNaN(imgY)) {
             return null;
         }

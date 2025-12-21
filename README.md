@@ -14,6 +14,17 @@ JavaFX-based UI for the P2P remote desktop client. Networking, models, and remot
   mvn -DskipTests package
   ```
 
+## Windows EXE build
+- Requirements: Windows 10/11, JDK 21+ with `jlink`/`jpackage` on PATH (`JAVA_HOME` set), network access to download JavaFX jmods.
+- Build the installer (PowerShell):
+  ```powershell
+  cd gvieww-peer
+  .\build-win-exe.ps1 -Version 1.0.0 -AppName gview-peer    # add -Arch aarch64 for Windows ARM
+  ```
+- Output: installer at `target\win-exe\output\*.exe`, staged app files (including `.env`, `install.ps1`, and `config\config.properties`) at `target\win-exe\app`, and bundled runtime at `target\win-exe\runtime`.
+- At runtime, the app loads `config.properties` from `<installDir>\config\config.properties` if present (updated by `install.ps1`), otherwise falls back to the classpath copy.
+- The installer bundles a slim Java runtime with JavaFX, so the app runs without a system JRE.
+
 ## UI layout
 - `src/main/resources/fxml/MainWindow.fxml` – shell window with menu/status and containers.
 - `Sessions.fxml` – identity, session list, and connect/disconnect controls.
@@ -35,3 +46,9 @@ JavaFX-based UI for the P2P remote desktop client. Networking, models, and remot
 ## Configuration
 - Server endpoints and port ranges are read from `src/main/resources/config.properties` (same keys as the Swing build).
 - Screen quality presets: `WAN_SAFE`, `WAN_ULTRA`, `LAN_HIGH` (selectable from Sessions or Settings panes).
+
+## Tailnet install & configure (auto)
+- Set env vars: `AUTH_KEY` (90-day reusable Tailscale auth key) and `SERVER_TS_ADDR` (tailnet IP/hostname of the ID server).
+- macOS/Linux: `./install.sh`
+- Windows (Admin PowerShell): `.\install.ps1`
+- The script installs Tailscale if missing, joins the tailnet (`tailscale up --accept-routes`), rewrites `src/main/resources/config.properties` with the provided server address, and prints your tailnet IP (`tailscale ip -4 | head -n1`).

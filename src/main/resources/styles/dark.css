@@ -21,9 +21,23 @@
     -fx-border-radius: 16;
     -fx-border-color: #23324a;
     -fx-border-width: 1;
-    -fx-padding: 12;
+    -fx-padding: 0;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 14, 0.12, 0, 6);
 }
+
+.surface > .top {
+    -fx-padding: 12 12 0 12;
+}
+
+.surface > .center {
+    -fx-padding: 12 12 12 12;
+}
+
+.remote-view-center {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
 
 .panel-border {
     -fx-background-color: #131f33;
@@ -52,12 +66,33 @@
     -fx-padding: 6 10 10 10;
 }
 
-.status-bar {
-    -fx-background-color: linear-gradient(to right, #1d2b40, #18263a);
+.header-bar {
+    -fx-background-color: linear-gradient(to right, #182438, #141e2f);
     -fx-border-color: #25344d;
-    -fx-border-width: 1 0 0 0;
-    -fx-padding: 8 12;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 6 10;
     -fx-text-fill: #d8e1ec;
+}
+
+.status-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: #c1cadd;
+}
+
+.chip-button {
+    -fx-background-color: linear-gradient(to bottom, #1b2a3d, #162234);
+    -fx-border-color: #2f3f57;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 6 10;
+    -fx-font-weight: 600;
+    -fx-text-fill: #e8eef9;
+}
+
+.chip-button.danger {
+    -fx-background-color: linear-gradient(to bottom, #3a1f25, #2c171d);
+    -fx-border-color: #5c2c35;
+    -fx-text-fill: #ffb3b0;
 }
 
 .remote-surface {
@@ -107,6 +142,39 @@
     -fx-border-radius: 10;
     -fx-text-fill: #e8eef9;
     -fx-prompt-text-fill: #7586a8;
+}
+
+.scroll-pane.chromeless-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane.chromeless-scroll .scroll-bar,
+.scroll-pane.chromeless-scroll .scroll-bar .track,
+.scroll-pane.chromeless-scroll .scroll-bar .thumb {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-opacity: 0;
+    -fx-padding: 0;
+}
+
+.scroll-pane.chromeless-scroll .scroll-bar:vertical {
+    -fx-pref-width: 0;
+    -fx-max-width: 0;
+    -fx-min-width: 0;
+}
+
+.scroll-pane.chromeless-scroll .scroll-bar:horizontal {
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+    -fx-min-height: 0;
+}
+
+.scroll-pane.chromeless-scroll .increment-button,
+.scroll-pane.chromeless-scroll .decrement-button,
+.scroll-pane.chromeless-scroll .corner {
+    -fx-pref-height: 0;
+    -fx-pref-width: 0;
+    -fx-opacity: 0;
 }
 
 .button {
