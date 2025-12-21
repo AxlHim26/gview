@@ -38,6 +38,7 @@ public class P2PMessage implements Serializable {
     private int mouseY;
     private int mouseButton;
     private boolean mousePressed;
+    private int mouseScrollDelta;
     private int keyCode;
     private boolean keyPressed;
     private int keyModifiers;
@@ -254,6 +255,14 @@ public class P2PMessage implements Serializable {
 
     public void setMousePressed(boolean mousePressed) {
         this.mousePressed = mousePressed;
+    }
+
+    public int getMouseScrollDelta() {
+        return mouseScrollDelta;
+    }
+
+    public void setMouseScrollDelta(int mouseScrollDelta) {
+        this.mouseScrollDelta = mouseScrollDelta;
     }
 
     public int getKeyCode() {

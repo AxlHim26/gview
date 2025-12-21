@@ -43,8 +43,6 @@ public class MainWindowController {
     private Label regAudioStatusLabel;
     @FXML
     private javafx.scene.control.Button regAudioButton;
-    @FXML
-    private javafx.scene.control.Button regMuteButton;
 
     private SessionsController sessionsController;
     private RemoteViewController remoteViewController;
@@ -153,32 +151,16 @@ public class MainWindowController {
         } else {
             coordinator.startAudioSending();
         }
-        updateAudioUi(coordinator.isAudioSending(), coordinator.isPlaybackMuted());
+        updateAudioUi(coordinator.isAudioSending());
     }
 
-    @FXML
-    public void toggleMuteOutputReg() {
-        if (coordinator == null) {
-            return;
-        }
-        boolean mute = !coordinator.isPlaybackMuted();
-        coordinator.setPlaybackMuted(mute);
-        updateAudioUi(coordinator.isAudioSending(), mute);
-    }
-
-    public void updateAudioUi(boolean sending, boolean muted) {
+    public void updateAudioUi(boolean sending) {
         Platform.runLater(() -> {
             if (regAudioButton != null) {
-                regAudioButton.setText(sending ? "Tắt mic" : "Bật mic");
-            }
-            if (regMuteButton != null) {
-                regMuteButton.setText(muted ? "Bật loa" : "Tắt loa");
+                regAudioButton.setText(sending ? "Tắt audio" : "Bật audio");
             }
             if (regAudioStatusLabel != null) {
                 String status = sending ? "Audio: đang gửi" : "Audio: tắt";
-                if (muted) {
-                    status += " | loa tắt";
-                }
                 regAudioStatusLabel.setText(status);
             }
         });

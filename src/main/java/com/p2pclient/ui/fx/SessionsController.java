@@ -27,8 +27,6 @@ public class SessionsController {
     @FXML
     private PasswordField connectPasswordField;
     @FXML
-    private ChoiceBox<String> qualityChoiceBox;
-    @FXML
     private Button connectButton;
     @FXML
     private Button disconnectButton;
@@ -66,17 +64,6 @@ public class SessionsController {
         modeColumn.setCellValueFactory(data -> data.getValue().modeProperty());
         statusColumn.setCellValueFactory(data -> data.getValue().statusProperty());
         sessionTable.setItems(sessions);
-
-        qualityChoiceBox.setItems(FXCollections.observableArrayList(
-            "LAN_HIGH"
-        ));
-        qualityChoiceBox.getSelectionModel().select("LAN_HIGH");
-        qualityChoiceBox.setOnAction(e -> {
-            if (coordinator != null) {
-                String selected = qualityChoiceBox.getSelectionModel().getSelectedItem();
-                coordinator.onQualityProfileChanged(selected);
-            }
-        });
     }
 
     public void setCoordinator(FxClientCoordinator coordinator) {
@@ -233,12 +220,11 @@ public class SessionsController {
     }
 
     public ScreenQualityProfile getSelectedProfile() {
-        String selected = qualityChoiceBox.getSelectionModel().getSelectedItem();
-        return selected == null ? ScreenQualityProfile.defaultProfile() : ScreenQualityProfile.fromCliArg(selected);
+        return ScreenQualityProfile.defaultProfile();
     }
 
     public void setSelectedProfile(ScreenQualityProfile profile) {
-        Platform.runLater(() -> qualityChoiceBox.getSelectionModel().select(profile.name()));
+        // no-op: quality fixed to default/high
     }
 
     public CompletableFuture<Boolean> confirmIncomingConnection(String sourcePeerId, String ip, Integer port) {

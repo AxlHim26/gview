@@ -38,8 +38,7 @@
                             <Button text="Gửi" onAction="#sendRegistrationChat" />
                         </HBox>
                         <HBox spacing="8" alignment="CENTER_LEFT">
-                            <Button fx:id="regAudioButton" text="Bật mic" onAction="#toggleAudioSendReg" />
-                            <Button fx:id="regMuteButton" text="Tắt loa" onAction="#toggleMuteOutputReg" />
+                            <Button fx:id="regAudioButton" text="Bật audio" onAction="#toggleAudioSendReg" />
                             <Label fx:id="regAudioStatusLabel" text="Audio: tắt" styleClass="muted" />
                         </HBox>
                     </VBox>

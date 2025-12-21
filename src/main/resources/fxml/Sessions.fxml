@@ -47,11 +47,6 @@
             </padding>
             <TextField fx:id="targetPeerIdField" promptText="Peer đích (XXX-XXX-XXX)" />
             <PasswordField fx:id="connectPasswordField" promptText="Mật khẩu peer đích" />
-            <HBox spacing="8" alignment="CENTER_LEFT">
-                <Label text="Quality" minWidth="80" />
-                <ChoiceBox fx:id="qualityChoiceBox" />
-                <Region HBox.hgrow="ALWAYS" />
-            </HBox>
             <HBox spacing="8">
                 <Button fx:id="connectButton" text="Connect" onAction="#connectToPeer" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
                 <Button fx:id="disconnectButton" text="Disconnect" onAction="#disconnectFromPeer" disable="true" HBox.hgrow="ALWAYS" maxWidth="Infinity" />

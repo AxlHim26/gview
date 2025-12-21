@@ -361,15 +361,6 @@ public class FxClientCoordinator {
         return audioSending;
     }
 
-    public void setPlaybackMuted(boolean muted) {
-        audioPlayer.setMuted(muted);
-        broadcastAudioUi();
-    }
-
-    public boolean isPlaybackMuted() {
-        return audioPlayer.isMuted();
-    }
-
     private void sendFileInternal(File file, boolean treatAsFolder) {
         if (file == null) {
             sessionsController.appendLog("Không có file/folder để gửi");
@@ -1008,13 +999,12 @@ public class FxClientCoordinator {
 
     private void broadcastAudioUi() {
         boolean sending = audioSending;
-        boolean muted = audioPlayer.isMuted();
         Platform.runLater(() -> {
             if (remoteViewController != null) {
-                remoteViewController.refreshAudioUi(sending, muted);
+                remoteViewController.refreshAudioUi(sending);
             }
             if (mainWindowController != null) {
-                mainWindowController.updateAudioUi(sending, muted);
+                mainWindowController.updateAudioUi(sending);
             }
         });
     }

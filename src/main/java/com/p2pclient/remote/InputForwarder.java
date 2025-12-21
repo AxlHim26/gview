@@ -180,6 +180,7 @@ public class InputForwarder {
         message.setMouseY(scaledY);
         message.setMouseButton(0); // 0 indicates MOVE (no button)
         message.setMousePressed(false);
+        message.setMouseScrollDelta(0);
         
         return message;
     }
@@ -231,8 +232,19 @@ public class InputForwarder {
         message.setMouseY(scaledY);
         message.setMouseButton(button);
         message.setMousePressed(pressed);
+        message.setMouseScrollDelta(0);
         
         return message;
+    }
+
+    /**
+     * Create mouse scroll message with normalized coordinates and scroll delta
+     */
+    public P2PMessage createMouseScrollMessage(int imageX, int imageY, int delta) {
+        P2PMessage msg = createMouseMoveMessage(imageX, imageY);
+        msg.setMouseScrollDelta(delta);
+        // button 0, pressed false already set
+        return msg;
     }
 
     /**
@@ -276,6 +288,10 @@ public class InputForwarder {
             }
             
             robot.mouseMove(targetX, targetY);
+            int scroll = message.getMouseScrollDelta();
+            if (scroll != 0) {
+                robot.mouseWheel(scroll);
+            }
         } catch (Exception e) {
             logger.error("Error executing mouse move", e);
         }
@@ -321,6 +337,10 @@ public class InputForwarder {
                 robot.mousePress(buttonMask);
             } else {
                 robot.mouseRelease(buttonMask);
+            }
+            int scroll = message.getMouseScrollDelta();
+            if (scroll != 0) {
+                robot.mouseWheel(scroll);
             }
         } catch (Exception e) {
             logger.error("Error executing mouse click", e);

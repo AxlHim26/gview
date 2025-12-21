@@ -12,6 +12,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -45,8 +46,6 @@ public class RemoteViewController {
     private StackPane remoteSurface;
     @FXML
     private Button audioToggleButton;
-    @FXML
-    private Button muteButton;
     @FXML
     private Label audioStatusLabel;
     @FXML
@@ -115,6 +114,7 @@ public class RemoteViewController {
         remoteCanvas.setOnMouseMoved(this::handleMouseMoved);
         remoteCanvas.setOnKeyPressed(this::handleKeyPressed);
         remoteCanvas.setOnKeyReleased(this::handleKeyReleased);
+        remoteCanvas.setOnScroll(this::handleScroll);
         drawPlaceholder();
     }
 
@@ -132,7 +132,7 @@ public class RemoteViewController {
     }
 
     public void setAudioSending(boolean sending) {
-        Platform.runLater(() -> updateAudioUi(sending, coordinator != null && coordinator.isPlaybackMuted()));
+        Platform.runLater(() -> updateAudioUi(sending));
     }
 
     @FXML
@@ -175,37 +175,21 @@ public class RemoteViewController {
         } else {
             coordinator.startAudioSending();
         }
-        updateAudioUi(coordinator.isAudioSending(), coordinator.isPlaybackMuted());
+        updateAudioUi(coordinator.isAudioSending());
     }
 
-    @FXML
-    private void toggleMuteOutput() {
-        if (coordinator == null) {
-            return;
-        }
-        boolean mute = !coordinator.isPlaybackMuted();
-        coordinator.setPlaybackMuted(mute);
-        updateAudioUi(coordinator.isAudioSending(), mute);
-    }
-
-    private void updateAudioUi(boolean sending, boolean muted) {
+    private void updateAudioUi(boolean sending) {
         if (audioToggleButton != null) {
-            audioToggleButton.setText(sending ? "Tắt mic" : "Bật mic");
-        }
-        if (muteButton != null) {
-            muteButton.setText(muted ? "Bật loa" : "Tắt loa");
+            audioToggleButton.setText(sending ? "Tắt audio" : "Bật audio");
         }
         if (audioStatusLabel != null) {
             String status = sending ? "Audio: đang gửi" : "Audio: tắt";
-            if (muted) {
-                status += " | loa tắt";
-            }
             audioStatusLabel.setText(status);
         }
     }
 
-    public void refreshAudioUi(boolean sending, boolean muted) {
-        updateAudioUi(sending, muted);
+    public void refreshAudioUi(boolean sending) {
+        updateAudioUi(sending);
     }
 
     @FXML
@@ -480,6 +464,22 @@ public class RemoteViewController {
 
     private void handleMouseMoved(MouseEvent event) {
         sendMouseMove(event);
+    }
+
+    private void handleScroll(ScrollEvent event) {
+        if (!controller || coordinator == null || inputForwarder == null) {
+            return;
+        }
+        Point2D coords = toImageCoordinates(event.getX(), event.getY());
+        int x = coords == null ? (int) event.getX() : (int) Math.round(coords.getX());
+        int y = coords == null ? (int) event.getY() : (int) Math.round(coords.getY());
+        // Typical scroll deltaY is in pixels; convert to wheel notches (~40px per notch)
+        int notches = (int) Math.round(event.getDeltaY() / 40.0);
+        if (notches == 0) {
+            return;
+        }
+        P2PMessage msg = inputForwarder.createMouseScrollMessage(x, y, notches);
+        coordinator.handleMouseEvent(msg);
     }
 
     private void handleKeyPressed(KeyEvent event) {

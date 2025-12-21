@@ -14,8 +14,7 @@
             <Label text="Remote View" styleClass="section-title" />
             <Label fx:id="metricsLabel" text="fps: - | rtt: - | cpu: -" styleClass="muted" />
             <Region HBox.hgrow="ALWAYS" />
-            <Button fx:id="audioToggleButton" text="Mic Off" onAction="#toggleAudioSend" />
-            <Button fx:id="muteButton" text="Mute Out" onAction="#toggleMuteOutput" />
+            <Button fx:id="audioToggleButton" text="Bật audio" onAction="#toggleAudioSend" />
             <Label fx:id="audioStatusLabel" text="Audio: idle" styleClass="muted" />
             <Button text="Disconnect" onAction="#handleDisconnect" />
             <Button fx:id="fullScreenButton" text="Fullscreen" onAction="#toggleFullScreen" />
