@@ -12,6 +12,7 @@ public class P2PMessage implements Serializable {
     public static final String TYPE_INPUT_ACK = "ACK";
     public static final String TYPE_CHAT = "CHAT";
     public static final String TYPE_FILE_CHUNK = "FILE_CHUNK";
+    public static final String TYPE_AUDIO = "AUDIO";
     
     private String type;
     private byte[] data;
@@ -48,6 +49,10 @@ public class P2PMessage implements Serializable {
     private int fileChunkTotal;
     private boolean fileTransferComplete;
     private boolean fileIsDirectory;
+    private int audioSampleRate;
+    private int audioChannels;
+    private int audioSequence;
+    private int audioChunkMillis;
 
     public P2PMessage() {
         this.timestamp = System.currentTimeMillis();
@@ -337,5 +342,37 @@ public class P2PMessage implements Serializable {
 
     public void setFileIsDirectory(boolean fileIsDirectory) {
         this.fileIsDirectory = fileIsDirectory;
+    }
+
+    public int getAudioSampleRate() {
+        return audioSampleRate;
+    }
+
+    public void setAudioSampleRate(int audioSampleRate) {
+        this.audioSampleRate = audioSampleRate;
+    }
+
+    public int getAudioChannels() {
+        return audioChannels;
+    }
+
+    public void setAudioChannels(int audioChannels) {
+        this.audioChannels = audioChannels;
+    }
+
+    public int getAudioSequence() {
+        return audioSequence;
+    }
+
+    public void setAudioSequence(int audioSequence) {
+        this.audioSequence = audioSequence;
+    }
+
+    public int getAudioChunkMillis() {
+        return audioChunkMillis;
+    }
+
+    public void setAudioChunkMillis(int audioChunkMillis) {
+        this.audioChunkMillis = audioChunkMillis;
     }
 }

@@ -44,6 +44,12 @@ public class RemoteViewController {
     @FXML
     private StackPane remoteSurface;
     @FXML
+    private Button audioToggleButton;
+    @FXML
+    private Button muteButton;
+    @FXML
+    private Label audioStatusLabel;
+    @FXML
     private Button fullScreenButton;
     @FXML
     private VBox chatContainer;
@@ -125,6 +131,10 @@ public class RemoteViewController {
         Platform.runLater(() -> roleLabel.setText(controller ? "Role: Controller" : "Role: Controlled"));
     }
 
+    public void setAudioSending(boolean sending) {
+        Platform.runLater(() -> updateAudioUi(sending, coordinator != null && coordinator.isPlaybackMuted()));
+    }
+
     @FXML
     private void toggleFullScreen() {
         if (coordinator == null) {
@@ -153,6 +163,49 @@ public class RemoteViewController {
             coordinator.sendChatMessage(trimmed);
         }
         chatInput.clear();
+    }
+
+    @FXML
+    private void toggleAudioSend() {
+        if (coordinator == null) {
+            return;
+        }
+        if (coordinator.isAudioSending()) {
+            coordinator.stopAudioSending();
+        } else {
+            coordinator.startAudioSending();
+        }
+        updateAudioUi(coordinator.isAudioSending(), coordinator.isPlaybackMuted());
+    }
+
+    @FXML
+    private void toggleMuteOutput() {
+        if (coordinator == null) {
+            return;
+        }
+        boolean mute = !coordinator.isPlaybackMuted();
+        coordinator.setPlaybackMuted(mute);
+        updateAudioUi(coordinator.isAudioSending(), mute);
+    }
+
+    private void updateAudioUi(boolean sending, boolean muted) {
+        if (audioToggleButton != null) {
+            audioToggleButton.setText(sending ? "Tắt mic" : "Bật mic");
+        }
+        if (muteButton != null) {
+            muteButton.setText(muted ? "Bật loa" : "Tắt loa");
+        }
+        if (audioStatusLabel != null) {
+            String status = sending ? "Audio: đang gửi" : "Audio: tắt";
+            if (muted) {
+                status += " | loa tắt";
+            }
+            audioStatusLabel.setText(status);
+        }
+    }
+
+    public void refreshAudioUi(boolean sending, boolean muted) {
+        updateAudioUi(sending, muted);
     }
 
     @FXML

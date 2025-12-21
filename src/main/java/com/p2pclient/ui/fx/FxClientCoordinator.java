@@ -5,6 +5,8 @@ import com.p2pclient.model.PeerInfo;
 import com.p2pclient.network.IdServerClient;
 import com.p2pclient.network.P2PClient;
 import com.p2pclient.network.P2PServer;
+import com.p2pclient.remote.AudioPlayer;
+import com.p2pclient.remote.AudioStreamer;
 import com.p2pclient.remote.InputForwarder;
 import com.p2pclient.remote.ScreenCapture;
 import com.p2pclient.remote.ScreenQualityProfile;
@@ -28,6 +30,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,6 +41,7 @@ import java.util.Arrays;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipInputStream;
+import javax.sound.sampled.AudioFormat;
 
 /**
  * Coordinates control-plane (ID server discovery/signaling) with the data-plane (direct peer-to-peer sockets on the tailnet).
@@ -52,12 +56,24 @@ public class FxClientCoordinator {
     private final SettingsController settingsController;
 
     private static final int FILE_CHUNK_SIZE = 64 * 1024;
+    private static final int AUDIO_SAMPLE_RATE = 16000;
+    private static final int AUDIO_CHANNELS = 1;
+    private static final int AUDIO_CHUNK_MS = 20;
 
     private final ScreenReceiver screenReceiver = new ScreenReceiver();
     private final ExecutorService executorService = Executors.newCachedThreadPool();
     private final ConcurrentHashMap<String, ScreenStreamer> activeStreams = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, FileReceiveSession> incomingFileTransfers = new ConcurrentHashMap<>();
     private final AtomicLong lastStreamLog = new AtomicLong();
+    private final AudioFormat audioFormat = new AudioFormat(
+        AudioFormat.Encoding.PCM_SIGNED,
+        AUDIO_SAMPLE_RATE,
+        16,
+        AUDIO_CHANNELS,
+        AUDIO_CHANNELS * 2,
+        AUDIO_SAMPLE_RATE,
+        false
+    );
 
     private IdServerClient idServerClient;
     private P2PServer p2pServer;
@@ -68,6 +84,10 @@ public class FxClientCoordinator {
 
     private String activePeerId;
     private String activePeerAddress;
+
+    private AudioStreamer audioStreamer;
+    private final AudioPlayer audioPlayer = new AudioPlayer();
+    private boolean audioSending = false;
 
     private String myPeerId;
     private String myPassword;
@@ -243,6 +263,8 @@ public class FxClientCoordinator {
         activePeerId = null;
         activePeerAddress = null;
         stopAllStreams();
+        stopAudioSending();
+        audioPlayer.close();
         closeAllIncomingFileTransfers();
         Platform.runLater(() -> {
             sessionsController.setDisconnectEnabled(false);
@@ -298,6 +320,54 @@ public class FxClientCoordinator {
 
     public void sendFolder(File folder) {
         sendFileInternal(folder, true);
+    }
+
+    public synchronized void startAudioSending() {
+        if (audioSending) {
+            return;
+        }
+        if (!isActiveConnection()) {
+            sessionsController.appendLog("Không thể bật audio: chưa kết nối P2P");
+            return;
+        }
+        Consumer<P2PMessage> sender = msg -> {
+            boolean ok = sendMessageToActivePeer(msg);
+            if (!ok) {
+                throw new IllegalStateException("Lost P2P connection");
+            }
+        };
+        audioStreamer = new AudioStreamer(executorService, this::isActiveConnection, sender, audioFormat, AUDIO_CHUNK_MS);
+        audioStreamer.start();
+        audioSending = true;
+        Platform.runLater(() -> {
+            sessionsController.appendLog("Đã bật gửi audio");
+        });
+        broadcastAudioUi();
+    }
+
+    public synchronized void stopAudioSending() {
+        audioSending = false;
+        if (audioStreamer != null) {
+            audioStreamer.stop();
+            audioStreamer = null;
+        }
+        Platform.runLater(() -> {
+            sessionsController.appendLog("Đã tắt gửi audio");
+        });
+        broadcastAudioUi();
+    }
+
+    public boolean isAudioSending() {
+        return audioSending;
+    }
+
+    public void setPlaybackMuted(boolean muted) {
+        audioPlayer.setMuted(muted);
+        broadcastAudioUi();
+    }
+
+    public boolean isPlaybackMuted() {
+        return audioPlayer.isMuted();
     }
 
     private void sendFileInternal(File file, boolean treatAsFolder) {
@@ -562,6 +632,8 @@ public class FxClientCoordinator {
                     handleIncomingChat(message.getChatText());
                 } else if (P2PMessage.TYPE_FILE_CHUNK.equals(message.getType())) {
                     handleIncomingFileChunk(message);
+                } else if (P2PMessage.TYPE_AUDIO.equals(message.getType())) {
+                    handleIncomingAudio(message);
                 }
             }
 
@@ -604,6 +676,8 @@ public class FxClientCoordinator {
                         mainWindowController.setIncomingControllerInfo(null, null, null);
                         mainWindowController.showRegistrationView();
                     }
+                    stopAudioSending();
+                    audioPlayer.close();
                 });
             }
         });
@@ -626,6 +700,8 @@ public class FxClientCoordinator {
                     handleIncomingChat(message.getChatText());
                 } else if (P2PMessage.TYPE_FILE_CHUNK.equals(message.getType())) {
                     handleIncomingFileChunk(message);
+                } else if (P2PMessage.TYPE_AUDIO.equals(message.getType())) {
+                    handleIncomingAudio(message);
                 }
             }
 
@@ -641,6 +717,8 @@ public class FxClientCoordinator {
                     remoteViewController.clearScreen();
                     mainWindowController.showRegistrationView();
                     mainWindowController.setIncomingControllerInfo(null, null, null);
+                    stopAudioSending();
+                    audioPlayer.close();
                 });
             }
 
@@ -740,6 +818,16 @@ public class FxClientCoordinator {
             remoteViewController.appendChat("Peer: " + text);
             mainWindowController.appendIncomingChat("Peer: " + text);
         });
+    }
+
+    private void handleIncomingAudio(P2PMessage message) {
+        byte[] data = message.getData();
+        if (data == null || data.length == 0) {
+            return;
+        }
+        int sr = message.getAudioSampleRate() > 0 ? message.getAudioSampleRate() : AUDIO_SAMPLE_RATE;
+        int ch = message.getAudioChannels() > 0 ? message.getAudioChannels() : AUDIO_CHANNELS;
+        audioPlayer.play(data, sr, ch);
     }
 
     private void handleIncomingFileChunk(P2PMessage message) {
@@ -916,6 +1004,19 @@ public class FxClientCoordinator {
             } catch (IOException ignored) { }
         }
         incomingFileTransfers.clear();
+    }
+
+    private void broadcastAudioUi() {
+        boolean sending = audioSending;
+        boolean muted = audioPlayer.isMuted();
+        Platform.runLater(() -> {
+            if (remoteViewController != null) {
+                remoteViewController.refreshAudioUi(sending, muted);
+            }
+            if (mainWindowController != null) {
+                mainWindowController.updateAudioUi(sending, muted);
+            }
+        });
     }
 
     private static class FileReceiveSession {

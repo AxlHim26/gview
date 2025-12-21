@@ -37,6 +37,11 @@
                             <TextField fx:id="regChatInput" promptText="Nhập tin nhắn..." HBox.hgrow="ALWAYS" />
                             <Button text="Gửi" onAction="#sendRegistrationChat" />
                         </HBox>
+                        <HBox spacing="8" alignment="CENTER_LEFT">
+                            <Button fx:id="regAudioButton" text="Bật mic" onAction="#toggleAudioSendReg" />
+                            <Button fx:id="regMuteButton" text="Tắt loa" onAction="#toggleMuteOutputReg" />
+                            <Label fx:id="regAudioStatusLabel" text="Audio: tắt" styleClass="muted" />
+                        </HBox>
                     </VBox>
                 </HBox>
             </VBox>

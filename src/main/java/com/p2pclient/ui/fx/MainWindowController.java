@@ -9,6 +9,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Button;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -38,6 +39,12 @@ public class MainWindowController {
     private TextArea regChatArea;
     @FXML
     private TextField regChatInput;
+    @FXML
+    private Label regAudioStatusLabel;
+    @FXML
+    private javafx.scene.control.Button regAudioButton;
+    @FXML
+    private javafx.scene.control.Button regMuteButton;
 
     private SessionsController sessionsController;
     private RemoteViewController remoteViewController;
@@ -134,6 +141,47 @@ public class MainWindowController {
             coordinator.sendChatMessage(trimmed);
         }
         regChatInput.clear();
+    }
+
+    @FXML
+    public void toggleAudioSendReg() {
+        if (coordinator == null) {
+            return;
+        }
+        if (coordinator.isAudioSending()) {
+            coordinator.stopAudioSending();
+        } else {
+            coordinator.startAudioSending();
+        }
+        updateAudioUi(coordinator.isAudioSending(), coordinator.isPlaybackMuted());
+    }
+
+    @FXML
+    public void toggleMuteOutputReg() {
+        if (coordinator == null) {
+            return;
+        }
+        boolean mute = !coordinator.isPlaybackMuted();
+        coordinator.setPlaybackMuted(mute);
+        updateAudioUi(coordinator.isAudioSending(), mute);
+    }
+
+    public void updateAudioUi(boolean sending, boolean muted) {
+        Platform.runLater(() -> {
+            if (regAudioButton != null) {
+                regAudioButton.setText(sending ? "Tắt mic" : "Bật mic");
+            }
+            if (regMuteButton != null) {
+                regMuteButton.setText(muted ? "Bật loa" : "Tắt loa");
+            }
+            if (regAudioStatusLabel != null) {
+                String status = sending ? "Audio: đang gửi" : "Audio: tắt";
+                if (muted) {
+                    status += " | loa tắt";
+                }
+                regAudioStatusLabel.setText(status);
+            }
+        });
     }
 
     private void appendRegistrationChat(String message) {
