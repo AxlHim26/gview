@@ -9,6 +9,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.Arrays;
 
 /**
  * Captures microphone audio and pushes raw PCM frames via the provided sender.
@@ -67,11 +68,7 @@ public class AudioStreamer implements Runnable {
                 if (read <= 0) {
                     continue;
                 }
-                byte[] payload = buffer;
-                if (read != buffer.length) {
-                    payload = new byte[read];
-                    System.arraycopy(buffer, 0, payload, 0, read);
-                }
+                byte[] payload = Arrays.copyOf(buffer, read); // fresh array to avoid ObjectOutputStream reference caching
                 P2PMessage msg = new P2PMessage(P2PMessage.TYPE_AUDIO, payload);
                 msg.setAudioSampleRate((int) format.getSampleRate());
                 msg.setAudioChannels(format.getChannels());
